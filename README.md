@@ -7,13 +7,12 @@ This repository serves as the official starting point for hackathon participants
 
 ## Table of Contents
 
-- [Participation workflow](#participation-workflow)
-- [**Important**: How to Redeem Your Mistral API Gift Code](#important-how-to-redeem-your-mistral-api-gift-code)
-- [Getting started](#getting-started)
-- [AI provider and model requirements](#ai-provider-and-model-requirements)
-- [Mistral API key configuration](#mistral-api-key-configuration)
-- [Configuration export requirement](#configuration-export-requirement)
-- [Drupal Forge setup guide](#drupal-forge-setup-guide)
+* [Participation workflow](#participation-workflow)
+* [Getting started](#getting-started)
+* [AI provider and model requirements](#ai-provider-and-model-requirements)
+* [amazee.io AI provider setup](#amazeeio-ai-provider-setup)
+* [Configuration export requirement](#configuration-export-requirement)
+* [Drupal Forge setup guide](#drupal-forge-setup-guide)
 
 ## Participation workflow
 
@@ -21,24 +20,7 @@ Participants must **fork this repository** into a GitHub account of their choosi
 
 All development must happen in the forked repository.
 
-When ready for review, participants must open a **pull request back to this repository** so that judges can review and
-evaluate the submission.
-
-## Important: How to Redeem Your Mistral API Gift Code**
-
-To access the Mistral API without free tier limits during the hackathon, you must redeem your gift code
-**exclusively on Mistral AI Studio**. Do **NOT** redeem it on **Le Chat**, as this will burn your credits on the chat
-interface instead of the API.
-
-To correctly redeem your gift code:
-
-1. Log in with your Mistral account.
-2. Go to the [Mistral AI Studio subscriptions page](https://admin.mistral.ai/subscriptions?subscription-tab=ai-studio).
-3. Enter your gift code in the designated field under the **AI Studio** tab.
-4. Your API credits will be applied, allowing you to use the Mistral API for your hackathon projects.
-
-**Note:** If you accidentally redeem the code on **Le Chat**, your credits will be consumed for chat usage and **cannot**
-be transferred to the API. If you have any issues, reach out to the hackathon organizers for assistance.
+When ready for review, participants must open a **pull request back to this repository** so that judges can review and evaluate the submission.
 
 ## Getting started
 
@@ -61,33 +43,21 @@ See the Drupal User Guide for more information on installation options:
 
 ## AI provider and model requirements
 
-This distribution ships with the **Mistral** provider preconfigured. Participants are required to use a **Mistral model**
-for all AI-powered features. Several Mistral models are already preselected in the AI configuration, participants are
-free to change the selected model to any other Mistral model they consider appropriate. Non-Mistral models are not permitted.
+This distribution is configured to use an AI provider via the Drupal AI module. Participants **must use the amazee.io provider**
+for all AI-powered features in their submission. Non-amazee.ai providers are not permitted unless explicitly approved by hackathon organizers.
 
 Participants may add any Drupal modules they require for their solution.
 
-## Mistral API key configuration
+## amazee.io AI provider setup
 
-You must configure your Mistral API key before using AI features.
+To configure the provider:
 
-Run the following command:
-
-```shell
-cp .ddev/.env.example .ddev/.env
-```
-
-Open the `.env` file and set the following variable:
-
-```shell
-MISTRAL_API_KEY=your_api_key_here
-```
-
-Then restart DDEV to load the environment variable:
-
-```shell
-ddev restart
-```
+4. Visit the amazee.io provider configuration form at **Configuration → AI → Provider Settings → amazee.io Authentication**
+   (typically `/admin/config/ai/providers/amazeeio`).
+5. Enter the **email address used to register for the hackathon** to begin authentication.
+6. Check your email for a verification code from amazee.ai, enter it on the form, and submit.
+7. Once verified, amazee.ai credentials (LLM key and VectorDB key) will be stored in the **Keys** module at
+   `/admin/config/system/keys`. ([drupal.org][1])
 
 ## Configuration export requirement
 
@@ -164,9 +134,3 @@ Steps:
 composer install
 drush -y si --existing-config --db-url="${DB_DRIVER}://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
 ```
-
-To set up the Mistral API key on Drupal Forge:
-
-1. Edit the key by visiting `/admin/config/system/keys/manage/mistral_api_key`
-2. Change "Key provider" to "Configuration"
-3. Set the key value and save
