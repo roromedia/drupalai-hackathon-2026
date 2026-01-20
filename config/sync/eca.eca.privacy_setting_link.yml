@@ -16,6 +16,7 @@ _core:
   default_config_hash: yGAvhuMNh7MFwTwHF-k2s33cmR1RCnW_u4pi0j8nNak
 id: privacy_setting_link
 weight: 0
+template: null
 events:
   config__save_config:
     plugin: 'config:save'

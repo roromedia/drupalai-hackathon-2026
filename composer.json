@@ -105,6 +105,9 @@
         "patches": {
             "drupal/core": {
                 "#3564735: Synthetic service (kernel) error during non-interactive install from existing config in Drupal 11.3": "https://git.drupalcode.org/project/drupal/-/merge_requests/14169.patch"
+            },
+            "drupal/ai": {
+                "#3567784: Tools Function Input should give back an empty json schema skeleton": "https://git.drupalcode.org/project/ai/-/merge_requests/1120.patch"
             }
         }
     },

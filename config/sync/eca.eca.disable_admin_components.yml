@@ -19,6 +19,7 @@ _core:
   default_config_hash: L4Z5fJR3eepX2RNLXkhrKRiYhaQVRUN_0GiicKSiwXQ
 id: disable_admin_components
 weight: 0
+template: null
 events:
   config__save_1_1:
     plugin: 'config:save'

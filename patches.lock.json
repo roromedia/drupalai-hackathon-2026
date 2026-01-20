@@ -1,5 +1,5 @@
 {
-    "_hash": "3af0e85af97b652b3d88aec6de48f7dc73e610e2742709954137f65661534b00",
+    "_hash": "56e05065f12f311aaeb34b49fd061e55a8c004ddad6902874c80f828156d15ce",
     "patches": {
         "drupal/core": [
             {
@@ -8,6 +8,18 @@
                 "url": "https://git.drupalcode.org/project/drupal/-/merge_requests/14169.patch",
                 "sha256": "71fb6ea138a76694e061d9180489fdaf1008f6c9bfdd766cc1fb3ae5f06bd5f1",
                 "depth": 2,
+                "extra": {
+                    "provenance": "root"
+                }
+            }
+        ],
+        "drupal/ai": [
+            {
+                "package": "drupal/ai",
+                "description": "#3567784: Tools Function Input should give back an empty json schema skeleton",
+                "url": "https://git.drupalcode.org/project/ai/-/merge_requests/1120.patch",
+                "sha256": "2318e645dbb7e17c6fff6b51687d6f063ec7fa70355d44733be467f88e7020da",
+                "depth": 1,
                 "extra": {
                     "provenance": "root"
                 }

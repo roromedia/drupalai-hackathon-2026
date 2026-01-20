@@ -18,6 +18,7 @@ _core:
   default_config_hash: _1iS7N0Xt4HNLyfSuGkZLDg0VeccalilJqyDhUVMWS0
 id: content_template_disable_preview
 weight: 0
+template: null
 events:
   config__save_1_1:
     plugin: 'config:save'

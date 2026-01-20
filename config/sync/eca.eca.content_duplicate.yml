@@ -15,6 +15,7 @@ _core:
   default_config_hash: PHE5O_OhX4g9fpS53Dft_O3ghYBvo8phl8mqdFuP7cg
 id: content_duplicate
 weight: 0
+template: null
 events:
   eca_render__entity_operations_link:
     plugin: 'eca_render:entity_operations'

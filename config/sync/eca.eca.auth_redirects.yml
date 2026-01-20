@@ -13,6 +13,7 @@ _core:
   default_config_hash: dio4fLnnVWCTUpgfUqGtkG_2RDEHiWE0dt8478NNOWI
 id: auth_redirects
 weight: 0
+template: null
 events:
   user__logout:
     plugin: 'user:logout'

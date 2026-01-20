@@ -2,26 +2,5 @@ _core:
   default_config_hash: RGedRkFydKZjS0ZJ6vbtZH00KbhYVGsK-ABILHdQLyw
 prompt_logging: false
 prompt_logging_tags: ''
-default_providers:
-  chat:
-    provider_id: mistral
-    model_id: mistral-large-latest
-  chat_with_complex_json:
-    provider_id: mistral
-    model_id: mistral-large-latest
-  chat_with_image_vision:
-    provider_id: mistral
-    model_id: pixtral-large-latest
-  chat_with_structured_response:
-    provider_id: mistral
-    model_id: mistral-large-latest
-  chat_with_tools:
-    provider_id: mistral
-    model_id: mistral-large-latest
-  embeddings:
-    provider_id: mistral
-    model_id: mistral-embed
-  moderation:
-    provider_id: mistral
-    model_id: mistral-moderation-latest
+default_providers: {  }
 default_vdb_provider: ''
