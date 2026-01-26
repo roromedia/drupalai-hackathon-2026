@@ -15,6 +15,7 @@ This repository serves as the official starting point for hackathon participants
 * [amazee.io AI provider setup](#amazeeio-ai-provider-setup)
 * [Configuration export requirement](#configuration-export-requirement)
 * [DevPanel setup guide](#devpanel-setup-guide)
+* [Resources](#resources)
 
 ## Participation workflow
 
@@ -142,10 +143,17 @@ drush -y si --existing-config --db-url="${DB_DRIVER}://${DB_USER}:${DB_PASSWORD}
 
 Remember to set up the amazee.io AI provider on the site since its configuration is ignored, [see section above](#amazeeio-ai-provider-setup).
 
-## Extra modules
-There are some extra modules included in this distribution that you might find useful during the hackathon, that you can just enable:
+## Resources
 
-- [FlowDrop UI Agents](https://www.drupal.org/project/flowdrop_ui_agents) - the visual agent builder featured in the last training session, that greatly improves the development experience for creating AI-powered agents.
-- [Tool API](https://www.drupal.org/project/tool_api) - a module that allows you to define and manage tools that can be used by AI agents to perform specific tasks. This is the future of more integrated way that agents will have tools.
-- [Agent Handler](https://www.drupal.org/project/ai_agent_agent) - With flowdrop UI for agents, an AI agent that can create and edit agents and explain the tools. An assistant will be added, just attach it to a Chatbot and start asking it to help you with agents and tools.
-- [Pexels AI](https://www.drupal.org/project/pexels_ai) - Integrates the Pexels API to provide AI-powered image search and download.
+While not included in this distribution, the following modules may be useful resources to explore during the hackathon
+if they align with your project goals:
+
+- [FlowDrop UI Agents](https://www.drupal.org/project/flowdrop_ui_agents): A visual agent builder that greatly improves
+  the development experience for creating AI-powered agents.
+- [Tool API](https://www.drupal.org/project/tool_api): A module that allows you to define and manage tools that can be
+  used by AI agents to perform specific tasks. This represents a more integrated approach for agents to interact with tools.
+- [Agent Handler](https://www.drupal.org/project/ai_agent_agent): When combined with FlowDrop UI for agents, this provides
+  an AI agent that can create and edit agents and explain available tools. You can attach it to a chatbot to get assistance
+  with agents and tools.
+- [Pexels AI](https://www.drupal.org/project/pexels_ai): Integrates the Pexels API to provide AI-powered image search
+  and download capabilities.
