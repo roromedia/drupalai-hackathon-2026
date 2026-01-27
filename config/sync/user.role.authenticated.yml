@@ -9,6 +9,7 @@ dependencies:
     - coffee
     - contextual
     - dashboard
+    - editoria11y
     - file
     - honeypot
     - klaro
@@ -30,8 +31,10 @@ permissions:
   - 'access navigation'
   - 'bypass honeypot protection'
   - 'delete own files'
+  - 'mark as hidden in editoria11y'
   - 'skip CAPTCHA'
   - 'use klaro'
+  - 'view editoria11y checker'
   - 'view media'
   - 'view own unpublished content'
   - 'view the administration theme'

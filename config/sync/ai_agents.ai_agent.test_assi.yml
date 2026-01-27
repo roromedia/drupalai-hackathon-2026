@@ -1,0 +1,23 @@
+uuid: 50630f84-875c-4664-982b-6b4f61116a98
+langcode: en
+status: true
+dependencies: {  }
+id: test_assi
+label: 'Test assi'
+description: assss
+system_prompt: insss
+secured_system_prompt: null
+tools:
+  'ai_agents::ai_agent::content_type_agent_triage': true
+  'ai_agents::ai_agent::field_agent_triage': true
+  'ai_agents::ai_agent::taxonomy_agent_config': true
+tool_settings: null
+orchestration_agent: true
+triage_agent: false
+max_loops: 3
+default_information_tools: null
+tool_usage_limits: {  }
+exclude_users_role: false
+masquerade_roles: {  }
+structured_output_enabled: null
+structured_output_schema: null

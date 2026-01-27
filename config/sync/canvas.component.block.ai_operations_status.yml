@@ -1,0 +1,22 @@
+uuid: d02cfbc7-bdea-4947-a3d9-77d947b51e32
+langcode: en
+status: true
+dependencies:
+  module:
+    - ai_dashboard
+active_version: da2578057a3a6ad7
+versioned_properties:
+  active:
+    settings:
+      default_settings:
+        id: ai_operations_status
+        label: 'AI Operations Status'
+        label_display: '0'
+        provider: ai_dashboard
+    fallback_metadata:
+      slot_definitions: null
+label: 'AI Operations Status'
+id: block.ai_operations_status
+provider: ai_dashboard
+source: block
+source_local_id: ai_operations_status

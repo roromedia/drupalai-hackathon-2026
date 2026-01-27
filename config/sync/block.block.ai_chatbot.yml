@@ -1,0 +1,38 @@
+uuid: d1b082ee-79e0-4ff7-9f2a-cfd10fa4bee1
+langcode: en
+status: true
+dependencies:
+  module:
+    - ai_chatbot
+  theme:
+    - gin
+id: ai_chatbot
+theme: gin
+region: content
+weight: 0
+provider: null
+plugin: ai_deepchat_block
+settings:
+  id: ai_deepchat_block
+  label: 'Drupal Agent Chatbot'
+  label_display: '0'
+  provider: ai_chatbot
+  ai_assistant: drupal_cms_assistant
+  bot_name: 'Drupal Agent'
+  bot_image: /modules/contrib/ai/modules/ai_chatbot/assets/ai-icon-gradient.svg
+  use_username: 0
+  default_username: ''
+  use_avatar: 0
+  default_avatar: /core/misc/druplicon.png
+  first_message: 'I am a Drupal AI Assistant, I can help you set up your Drupal site. I can give you instructions and I can also do some functions.'
+  stream: 0
+  toggle_state: remember
+  width: auto
+  height: 100%
+  placement: toolbar
+  show_structured_results: false
+  show_copy_icon: true
+  collapse_minimal: false
+  style_file: toolbar.yml
+  verbose_mode: true
+visibility: {  }

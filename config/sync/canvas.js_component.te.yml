@@ -1,0 +1,39 @@
+uuid: 422feb0c-187c-4ded-bcab-217aa09d81b2
+langcode: en
+status: false
+dependencies: {  }
+machineName: te
+name: te
+required: {  }
+props: {  }
+slots: {  }
+js:
+  original: |
+    // See https://project.pages.drupalcode.org/canvas/ for documentation on how to build a code component
+
+    const Component = ({
+      text = "te",
+    }) => {
+      return (
+        <div className="text-3xl">
+          {text}
+        </div>
+      );
+    };
+
+    export default Component;
+  compiled: |
+    // See https://project.pages.drupalcode.org/canvas/ for documentation on how to build a code component
+    import { jsx as _jsx } from "react/jsx-runtime";
+    const Component = ({ text = "te" })=>{
+        return /*#__PURE__*/ _jsx("div", {
+            className: "text-3xl",
+            children: text
+        });
+    };
+    export default Component;
+css:
+  original: ''
+  compiled: |
+    /*! tailwindcss v4.1.13 | MIT License | https://tailwindcss.com */
+dataDependencies: {  }

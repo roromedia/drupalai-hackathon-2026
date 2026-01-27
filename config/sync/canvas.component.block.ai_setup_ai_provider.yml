@@ -1,0 +1,22 @@
+uuid: e2a62945-39cb-43da-9e7a-f65d9040e6c1
+langcode: en
+status: true
+dependencies:
+  module:
+    - ai_dashboard
+active_version: 8981e0d371c71875
+versioned_properties:
+  active:
+    settings:
+      default_settings:
+        id: ai_setup_ai_provider
+        label: 'Setup AI Provider'
+        label_display: '0'
+        provider: ai_dashboard
+    fallback_metadata:
+      slot_definitions: null
+label: 'Setup AI Provider'
+id: block.ai_setup_ai_provider
+provider: ai_dashboard
+source: block
+source_local_id: ai_setup_ai_provider
