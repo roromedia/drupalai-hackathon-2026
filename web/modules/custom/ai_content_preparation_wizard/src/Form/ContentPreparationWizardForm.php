@@ -8,11 +8,9 @@ use Drupal\ai_content_preparation_wizard\Service\CanvasCreatorInterface;
 use Drupal\ai_content_preparation_wizard\Service\ContentPlanGeneratorInterface;
 use Drupal\ai_content_preparation_wizard\Service\DocumentProcessingServiceInterface;
 use Drupal\ai_content_preparation_wizard\Service\WizardSessionManagerInterface;
-use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Messenger\MessengerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -26,9 +24,7 @@ final class ContentPreparationWizardForm extends FormBase {
   public function __construct(
     protected WizardSessionManagerInterface $sessionManager,
     protected DocumentProcessingServiceInterface $documentProcessing,
-    protected ConfigFactoryInterface $configFactory,
     protected EntityTypeManagerInterface $entityTypeManager,
-    protected MessengerInterface $messenger,
     protected ?ContentPlanGeneratorInterface $planGenerator = NULL,
     protected ?CanvasCreatorInterface $canvasCreator = NULL,
   ) {}
@@ -50,9 +46,7 @@ final class ContentPreparationWizardForm extends FormBase {
     return new static(
       $container->get('ai_content_preparation_wizard.wizard_session_manager'),
       $container->get('ai_content_preparation_wizard.document_processing'),
-      $container->get('config.factory'),
       $container->get('entity_type.manager'),
-      $container->get('messenger'),
       $planGenerator,
       $canvasCreator,
     );
@@ -140,7 +134,7 @@ final class ContentPreparationWizardForm extends FormBase {
    * Builds Step 1: Document Upload.
    */
   protected function buildStep1(array &$form, FormStateInterface $form_state): void {
-    $config = $this->configFactory->get('ai_content_preparation_wizard.settings');
+    $config = $this->configFactory()->get('ai_content_preparation_wizard.settings');
     $extensions = $config->get('allowed_extensions') ?? ['txt', 'md', 'docx', 'pdf'];
     $maxSize = $config->get('max_file_size') ?? 10485760;
 
@@ -446,7 +440,7 @@ final class ContentPreparationWizardForm extends FormBase {
             $processedDocs[] = $processed;
           }
           catch (\Exception $e) {
-            $this->messenger->addError($this->t('Failed to process @file: @error', [
+            $this->messenger()->addError($this->t('Failed to process @file: @error', [
               '@file' => $file->getFilename(),
               '@error' => $e->getMessage(),
             ]));
@@ -462,7 +456,7 @@ final class ContentPreparationWizardForm extends FormBase {
         $session->setContentPlan($plan);
       }
       catch (\Exception $e) {
-        $this->messenger->addError($this->t('Failed to generate content plan: @error', [
+        $this->messenger()->addError($this->t('Failed to generate content plan: @error', [
           '@error' => $e->getMessage(),
         ]));
       }
@@ -504,21 +498,21 @@ final class ContentPreparationWizardForm extends FormBase {
   public function regeneratePlan(array &$form, FormStateInterface $form_state): void {
     $refinement = $form_state->getValue('refinement');
     if (!$refinement || !$this->planGenerator) {
-      $this->messenger->addWarning($this->t('Please enter refinement instructions.'));
+      $this->messenger()->addWarning($this->t('Please enter refinement instructions.'));
       $form_state->setRebuild();
       return;
     }
 
     $session = $this->sessionManager->getSession();
     if (!$session) {
-      $this->messenger->addError($this->t('No active session found.'));
+      $this->messenger()->addError($this->t('No active session found.'));
       $form_state->setRebuild();
       return;
     }
 
     $plan = $session->getContentPlan();
     if (!$plan) {
-      $this->messenger->addError($this->t('No plan to refine.'));
+      $this->messenger()->addError($this->t('No plan to refine.'));
       $form_state->setRebuild();
       return;
     }
@@ -527,10 +521,10 @@ final class ContentPreparationWizardForm extends FormBase {
       $refinedPlan = $this->planGenerator->refine($plan, $refinement);
       $session->setContentPlan($refinedPlan);
       $this->sessionManager->updateSession($session);
-      $this->messenger->addStatus($this->t('Plan has been updated.'));
+      $this->messenger()->addStatus($this->t('Plan has been updated.'));
     }
     catch (\Exception $e) {
-      $this->messenger->addError($this->t('Failed to refine plan: @error', [
+      $this->messenger()->addError($this->t('Failed to refine plan: @error', [
         '@error' => $e->getMessage(),
       ]));
     }
@@ -569,18 +563,18 @@ final class ContentPreparationWizardForm extends FormBase {
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $session = $this->sessionManager->getSession();
     if (!$session) {
-      $this->messenger->addError($this->t('No active session.'));
+      $this->messenger()->addError($this->t('No active session.'));
       return;
     }
 
     $plan = $session->getContentPlan();
     if (!$plan) {
-      $this->messenger->addError($this->t('No content plan available.'));
+      $this->messenger()->addError($this->t('No content plan available.'));
       return;
     }
 
     if (!$this->canvasCreator) {
-      $this->messenger->addError($this->t('Canvas creator service not available.'));
+      $this->messenger()->addError($this->t('Canvas creator service not available.'));
       return;
     }
 
@@ -595,7 +589,7 @@ final class ContentPreparationWizardForm extends FormBase {
 
       $this->sessionManager->clearSession();
 
-      $this->messenger->addStatus($this->t('Canvas page "@title" has been created successfully.', [
+      $this->messenger()->addStatus($this->t('Canvas page "@title" has been created successfully.', [
         '@title' => $page->label(),
       ]));
 
@@ -603,7 +597,7 @@ final class ContentPreparationWizardForm extends FormBase {
       $form_state->setRedirectUrl($page->toUrl());
     }
     catch (\Exception $e) {
-      $this->messenger->addError($this->t('Failed to create Canvas page: @error', [
+      $this->messenger()->addError($this->t('Failed to create Canvas page: @error', [
         '@error' => $e->getMessage(),
       ]));
     }
