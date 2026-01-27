@@ -1,0 +1,10 @@
+uuid: a345983d-edb6-4b81-a347-675ee82feca5
+langcode: en
+status: true
+dependencies: {  }
+id: yoda
+label: Yoda
+description: 'Writes like Yoda in Star Wars'
+content: 'Write the text like Yoda from Star Wars.'
+tags:
+  - '2'
