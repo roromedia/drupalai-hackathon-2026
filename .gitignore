@@ -91,3 +91,10 @@ private
 drush-backups
 .console
 platformsh-template
+
+# AI/Claude tools
+.claude/
+.claude-flow/
+.swarm/
+.mcp.json
+CLAUDE.md

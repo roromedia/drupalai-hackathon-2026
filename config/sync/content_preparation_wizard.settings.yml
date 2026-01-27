@@ -1,0 +1,14 @@
+_core:
+  default_config_hash: CnMDjnwForHi_GT3i_XaQPEufjjthpNa6Wd_HO7_Wws
+pandoc_path: /usr/bin/pandoc
+max_file_size: 10485760
+allowed_extensions:
+  - txt
+  - md
+  - docx
+  - pdf
+default_ai_provider: ''
+default_ai_model: ''
+session_timeout: 3600
+enable_refinement: true
+max_refinement_iterations: 5

@@ -67,15 +67,24 @@ final class ContentPreparationWizardForm extends FormBase {
     $step = $form_state->get('step') ?? 1;
     $form_state->set('step', $step);
 
+    // Enable form tree for proper nested value handling.
+    $form['#tree'] = FALSE;
+
+    // Ensure form caching for multi-step.
+    $form_state->setCached(TRUE);
+
+    // Disable autosave for this form as it can interfere with multi-step.
+    $form['#autosave_form_disabled'] = TRUE;
+
     // Attach library.
     $form['#attached']['library'][] = 'ai_content_preparation_wizard/wizard';
-
-    // Build step indicator.
-    $form['step_indicator'] = $this->buildStepIndicator($step);
 
     // Build form wrapper for AJAX.
     $form['#prefix'] = '<div id="wizard-form-wrapper">';
     $form['#suffix'] = '</div>';
+
+    // Build step indicator.
+    $form['step_indicator'] = $this->buildStepIndicator($step);
 
     // Build step-specific form.
     switch ($step) {
@@ -196,6 +205,11 @@ final class ContentPreparationWizardForm extends FormBase {
       '#ajax' => [
         'callback' => '::ajaxCallback',
         'wrapper' => 'wizard-form-wrapper',
+        'disable-refocus' => TRUE,
+        'progress' => [
+          'type' => 'throbber',
+          'message' => $this->t('Processing documents...'),
+        ],
       ],
     ];
   }
@@ -276,6 +290,11 @@ final class ContentPreparationWizardForm extends FormBase {
         '#ajax' => [
           'callback' => '::ajaxCallback',
           'wrapper' => 'wizard-form-wrapper',
+          'disable-refocus' => TRUE,
+          'progress' => [
+            'type' => 'throbber',
+            'message' => $this->t('Regenerating plan...'),
+          ],
         ],
         '#limit_validation_errors' => [['refinement']],
       ];
@@ -297,6 +316,7 @@ final class ContentPreparationWizardForm extends FormBase {
       '#ajax' => [
         'callback' => '::ajaxCallback',
         'wrapper' => 'wizard-form-wrapper',
+        'disable-refocus' => TRUE,
       ],
       '#limit_validation_errors' => [],
     ];
@@ -308,7 +328,9 @@ final class ContentPreparationWizardForm extends FormBase {
       '#ajax' => [
         'callback' => '::ajaxCallback',
         'wrapper' => 'wizard-form-wrapper',
+        'disable-refocus' => TRUE,
       ],
+      '#limit_validation_errors' => [],
     ];
   }
 
@@ -388,6 +410,7 @@ final class ContentPreparationWizardForm extends FormBase {
       '#ajax' => [
         'callback' => '::ajaxCallback',
         'wrapper' => 'wizard-form-wrapper',
+        'disable-refocus' => TRUE,
       ],
       '#limit_validation_errors' => [],
     ];
@@ -403,6 +426,12 @@ final class ContentPreparationWizardForm extends FormBase {
    * AJAX callback.
    */
   public function ajaxCallback(array &$form, FormStateInterface $form_state): array {
+    // Add status messages to the form.
+    $form['messages'] = [
+      '#type' => 'status_messages',
+      '#weight' => -100,
+    ];
+
     return $form;
   }
 
@@ -547,9 +576,19 @@ final class ContentPreparationWizardForm extends FormBase {
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state): void {
+    // Get triggering element to determine context.
+    $trigger = $form_state->getTriggeringElement();
+    $triggerName = $trigger['#name'] ?? '';
+
+    // Skip validation for back buttons.
+    if (str_contains($triggerName, 'back')) {
+      return;
+    }
+
     $step = $form_state->get('step') ?? 1;
 
-    if ($step === 1) {
+    // Only validate step 1 fields when on step 1.
+    if ($step === 1 && str_contains($triggerName, 'next')) {
       $documents = $form_state->getValue('documents');
       if (empty(array_filter($documents ?? []))) {
         $form_state->setErrorByName('documents', $this->t('Please upload at least one document.'));
