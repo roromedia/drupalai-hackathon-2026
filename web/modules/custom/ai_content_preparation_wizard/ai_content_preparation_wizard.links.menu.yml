@@ -1,0 +1,6 @@
+ai_content_preparation_wizard.settings:
+  title: 'Content Preparation Wizard'
+  description: 'Configure the Content Preparation Wizard settings.'
+  route_name: ai_content_preparation_wizard.settings
+  parent: system.admin_config_content
+  weight: 10

@@ -1,0 +1,46 @@
+services:
+  plugin.manager.document_processor:
+    class: Drupal\ai_content_preparation_wizard\PluginManager\DocumentProcessorPluginManager
+    parent: default_plugin_manager
+
+  ai_content_preparation_wizard.document_processing:
+    class: Drupal\ai_content_preparation_wizard\Service\DocumentProcessingService
+    arguments:
+      - '@plugin.manager.document_processor'
+      - '@file_system'
+      - '@logger.factory'
+      - '@event_dispatcher'
+      - '@uuid'
+
+  ai_content_preparation_wizard.wizard_session_manager:
+    class: Drupal\ai_content_preparation_wizard\Service\WizardSessionManager
+    arguments:
+      - '@tempstore.private'
+      - '@current_user'
+      - '@uuid'
+      - '@datetime.time'
+      - '@event_dispatcher'
+
+  ai_content_preparation_wizard.pandoc_converter:
+    class: Drupal\ai_content_preparation_wizard\Service\PandocConverter
+    arguments:
+      - '@config.factory'
+      - '@file_system'
+      - '@logger.factory'
+
+  ai_content_preparation_wizard.canvas_creator:
+    class: Drupal\ai_content_preparation_wizard\Service\CanvasCreator
+    arguments:
+      - '@entity_type.manager'
+      - '@logger.factory'
+      - '@event_dispatcher'
+      - '@uuid'
+
+  ai_content_preparation_wizard.content_plan_generator:
+    class: Drupal\ai_content_preparation_wizard\Service\ContentPlanGenerator
+    arguments:
+      - '@ai.provider'
+      - '@config.factory'
+      - '@logger.factory'
+      - '@uuid'
+      - '@datetime.time'

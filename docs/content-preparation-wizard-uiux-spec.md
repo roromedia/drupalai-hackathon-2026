@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |-----------|-------|
-| Module Name | `content_preparation_wizard` |
+| Module Name | `ai_content_preparation_wizard` |
 | Version | 1.0.0 |
 | Drupal Compatibility | 10.x, 11.x |
 | Dependencies | `ai`, `canvas`, `file` |
@@ -60,18 +60,18 @@ The Content Preparation Wizard provides a guided, multi-step interface for conte
 ### 2.1 Module Structure
 
 ```
-content_preparation_wizard/
-├── content_preparation_wizard.info.yml
-├── content_preparation_wizard.module
-├── content_preparation_wizard.routing.yml
-├── content_preparation_wizard.services.yml
-├── content_preparation_wizard.libraries.yml
-├── content_preparation_wizard.permissions.yml
+ai_content_preparation_wizard/
+├── ai_content_preparation_wizard.info.yml
+├── ai_content_preparation_wizard.module
+├── ai_content_preparation_wizard.routing.yml
+├── ai_content_preparation_wizard.services.yml
+├── ai_content_preparation_wizard.libraries.yml
+├── ai_content_preparation_wizard.permissions.yml
 ├── config/
 │   ├── install/
-│   │   └── content_preparation_wizard.settings.yml
+│   │   └── ai_content_preparation_wizard.settings.yml
 │   └── schema/
-│       └── content_preparation_wizard.schema.yml
+│       └── ai_content_preparation_wizard.schema.yml
 ├── src/
 │   ├── Controller/
 │   │   └── WizardController.php
@@ -246,7 +246,7 @@ Documents → Parser → AI Context + Template → AI Generation → Plan → Re
 | Cardinality | Multiple |
 | Accept Types | `.txt`, `.docx`, `.pdf` |
 | Max File Size | 10MB (configurable) |
-| Upload Location | `private://content_preparation_wizard/` |
+| Upload Location | `private://ai_content_preparation_wizard/` |
 | Progress Indicator | `bar` |
 
 ```php
@@ -256,7 +256,7 @@ $form['source_documents'] = [
   '#description' => $this->t('Upload TXT, DOCX, or PDF files. Maximum file size: @size.', [
     '@size' => format_size(Environment::getUploadMaxSize()),
   ]),
-  '#upload_location' => 'private://content_preparation_wizard/',
+  '#upload_location' => 'private://ai_content_preparation_wizard/',
   '#upload_validators' => [
     'FileExtension' => ['extensions' => 'txt docx pdf'],
     'FileSizeLimit' => ['fileLimit' => 10 * 1024 * 1024],
@@ -773,7 +773,7 @@ protected function getPreviewUrl(array $cached_values): string {
     'page_type' => $cached_values['target_page_type'],
   ]);
 
-  return Url::fromRoute('content_preparation_wizard.preview', [
+  return Url::fromRoute('ai_content_preparation_wizard.preview', [
     'preview_id' => $preview_id,
   ])->toString();
 }
@@ -891,7 +891,7 @@ protected function handleAjaxError(\Exception $e, AjaxResponse $response): AjaxR
 '#ajax' => [
   'progress' => [
     'type' => 'bar',
-    'url' => Url::fromRoute('content_preparation_wizard.progress', [
+    'url' => Url::fromRoute('ai_content_preparation_wizard.progress', [
       'wizard_id' => $this->getMachineName(),
     ]),
     'interval' => 500,
@@ -909,7 +909,7 @@ protected function handleAjaxError(\Exception $e, AjaxResponse $response): AjaxR
 ```php
 <?php
 
-namespace Drupal\content_preparation_wizard\Form;
+namespace Drupal\ai_content_preparation_wizard\Form;
 
 use Drupal\ctools\Wizard\FormWizardBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -957,7 +957,7 @@ class ContentPreparationWizard extends FormWizardBase {
    * {@inheritdoc}
    */
   public function getRouteName(): string {
-    return 'content_preparation_wizard.wizard';
+    return 'ai_content_preparation_wizard.wizard';
   }
 
   /**
@@ -967,7 +967,7 @@ class ContentPreparationWizard extends FormWizardBase {
     $form = parent::customizeForm($form, $form_state);
 
     // Add wizard-specific CSS and JS
-    $form['#attached']['library'][] = 'content_preparation_wizard/wizard';
+    $form['#attached']['library'][] = 'ai_content_preparation_wizard/wizard';
 
     // Add step indicator
     $cached_values = $form_state->getTemporaryValue('wizard');
@@ -988,7 +988,7 @@ class ContentPreparationWizard extends FormWizardBase {
 ```php
 <?php
 
-namespace Drupal\content_preparation_wizard\Form\Step;
+namespace Drupal\ai_content_preparation_wizard\Form\Step;
 
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -1015,7 +1015,7 @@ class DocumentUploadForm extends FormBase {
     $form['source_documents'] = [
       '#type' => 'managed_file',
       '#title' => $this->t('Source Documents'),
-      '#upload_location' => 'private://content_preparation_wizard/',
+      '#upload_location' => 'private://ai_content_preparation_wizard/',
       '#upload_validators' => [
         'FileExtension' => ['extensions' => 'txt docx pdf'],
         'FileSizeLimit' => ['fileLimit' => 10 * 1024 * 1024],
@@ -1088,12 +1088,12 @@ class DocumentUploadForm extends FormBase {
 ### 8.3 Routing Configuration
 
 ```yaml
-# content_preparation_wizard.routing.yml
+# ai_content_preparation_wizard.routing.yml
 
-content_preparation_wizard.wizard:
+ai_content_preparation_wizard.wizard:
   path: '/admin/content/prepare/{machine_name}/{step}'
   defaults:
-    _wizard: '\Drupal\content_preparation_wizard\Form\ContentPreparationWizard'
+    _wizard: '\Drupal\ai_content_preparation_wizard\Form\ContentPreparationWizard'
     _title: 'Content Preparation Wizard'
     machine_name: NULL
     step: NULL
@@ -1106,25 +1106,25 @@ content_preparation_wizard.wizard:
       step:
         type: 'string'
 
-content_preparation_wizard.start:
+ai_content_preparation_wizard.start:
   path: '/admin/content/prepare'
   defaults:
-    _controller: '\Drupal\content_preparation_wizard\Controller\WizardController::start'
+    _controller: '\Drupal\ai_content_preparation_wizard\Controller\WizardController::start'
     _title: 'Prepare Content'
   requirements:
     _permission: 'use content preparation wizard'
 
-content_preparation_wizard.preview:
+ai_content_preparation_wizard.preview:
   path: '/admin/content/prepare/preview/{preview_id}'
   defaults:
-    _controller: '\Drupal\content_preparation_wizard\Controller\WizardController::preview'
+    _controller: '\Drupal\ai_content_preparation_wizard\Controller\WizardController::preview'
   requirements:
     _permission: 'use content preparation wizard'
 
-content_preparation_wizard.progress:
+ai_content_preparation_wizard.progress:
   path: '/admin/content/prepare/progress/{wizard_id}'
   defaults:
-    _controller: '\Drupal\content_preparation_wizard\Controller\WizardController::progress'
+    _controller: '\Drupal\ai_content_preparation_wizard\Controller\WizardController::progress'
   requirements:
     _permission: 'use content preparation wizard'
 ```
@@ -1338,7 +1338,7 @@ content_preparation_wizard.progress:
 ### 9.3 Library Definition
 
 ```yaml
-# content_preparation_wizard.libraries.yml
+# ai_content_preparation_wizard.libraries.yml
 
 wizard:
   version: VERSION
@@ -1359,7 +1359,7 @@ plan-refinement:
   js:
     js/plan-refinement.js: {}
   dependencies:
-    - content_preparation_wizard/wizard
+    - ai_content_preparation_wizard/wizard
     - core/drupal.ajax
 
 preview:
@@ -1367,7 +1367,7 @@ preview:
   js:
     js/preview.js: {}
   dependencies:
-    - content_preparation_wizard/wizard
+    - ai_content_preparation_wizard/wizard
 ```
 
 ---
@@ -1605,14 +1605,14 @@ preview:
   js:
     js/preview.js: { preprocess: false }
   dependencies:
-    - content_preparation_wizard/wizard
+    - ai_content_preparation_wizard/wizard
   # Load only when needed
 ```
 
 ```php
 // Conditionally attach libraries
 if ($this->getStep($cached_values) === 'preview') {
-  $form['#attached']['library'][] = 'content_preparation_wizard/preview';
+  $form['#attached']['library'][] = 'ai_content_preparation_wizard/preview';
 }
 ```
 
@@ -1697,10 +1697,10 @@ public function access(AccountInterface $account, string $operation = 'view'): A
 
 | Service ID | Class | Description |
 |------------|-------|-------------|
-| `content_preparation_wizard.parser` | `DocumentParserService` | Parse uploaded documents |
-| `content_preparation_wizard.ai_generator` | `AiPlanGeneratorService` | Generate content plans |
-| `content_preparation_wizard.canvas_builder` | `CanvasPageBuilderService` | Build Canvas pages |
-| `content_preparation_wizard.context_provider` | `ContextProviderService` | Provide AI contexts |
+| `ai_content_preparation_wizard.parser` | `DocumentParserService` | Parse uploaded documents |
+| `ai_content_preparation_wizard.ai_generator` | `AiPlanGeneratorService` | Generate content plans |
+| `ai_content_preparation_wizard.canvas_builder` | `CanvasPageBuilderService` | Build Canvas pages |
+| `ai_content_preparation_wizard.context_provider` | `ContextProviderService` | Provide AI contexts |
 
 #### Events
 
@@ -1714,9 +1714,9 @@ public function access(AccountInterface $account, string $operation = 'view'): A
 ### 14.2 Configuration Schema
 
 ```yaml
-# config/schema/content_preparation_wizard.schema.yml
+# config/schema/ai_content_preparation_wizard.schema.yml
 
-content_preparation_wizard.settings:
+ai_content_preparation_wizard.settings:
   type: config_object
   label: 'Content Preparation Wizard settings'
   mapping:
@@ -1777,7 +1777,7 @@ content_preparation_wizard.settings:
  * @param array &$contexts
  *   Array of context plugin definitions.
  */
-function hook_content_preparation_wizard_contexts_alter(array &$contexts): void {
+function hook_ai_content_preparation_wizard_contexts_alter(array &$contexts): void {
   // Add custom context
   $contexts['custom_context'] = [
     'id' => 'custom_context',
@@ -1794,7 +1794,7 @@ function hook_content_preparation_wizard_contexts_alter(array &$contexts): void 
  * @param array $context
  *   Context including documents and settings.
  */
-function hook_content_preparation_wizard_plan_alter(array &$plan, array $context): void {
+function hook_ai_content_preparation_wizard_plan_alter(array &$plan, array $context): void {
   // Modify plan sections
   foreach ($plan['sections'] as &$section) {
     $section['custom_field'] = 'custom_value';
@@ -1809,7 +1809,7 @@ function hook_content_preparation_wizard_plan_alter(array &$plan, array $context
  * @param array $wizard_data
  *   Data from the wizard.
  */
-function hook_content_preparation_wizard_page_created(CanvasPageInterface $page, array $wizard_data): void {
+function hook_ai_content_preparation_wizard_page_created(CanvasPageInterface $page, array $wizard_data): void {
   // Send notification, log analytics, etc.
 }
 ```
@@ -1829,7 +1829,7 @@ class ContentPreparationWizardCommands extends DrushCommands {
    * @aliases cpw-clear
    */
   public function clearWizardData(): void {
-    $this->tempStoreFactory->get('content_preparation_wizard')->deleteAll();
+    $this->tempStoreFactory->get('ai_content_preparation_wizard')->deleteAll();
     $this->logger()->success(dt('Wizard temporary data cleared.'));
   }
 

@@ -1,0 +1,4 @@
+ai_content_preparation_wizard.settings:
+  title: 'Settings'
+  route_name: ai_content_preparation_wizard.settings
+  base_route: ai_content_preparation_wizard.settings

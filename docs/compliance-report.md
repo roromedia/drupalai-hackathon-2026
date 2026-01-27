@@ -11,18 +11,18 @@ This report analyzes the proposed **Content Preparation Wizard** module design a
 ### Proposed Directory Structure
 
 ```
-content_preparation_wizard/
-├── content_preparation_wizard.info.yml
-├── content_preparation_wizard.module
-├── content_preparation_wizard.routing.yml
-├── content_preparation_wizard.services.yml
-├── content_preparation_wizard.permissions.yml
-├── content_preparation_wizard.libraries.yml
+ai_content_preparation_wizard/
+├── ai_content_preparation_wizard.info.yml
+├── ai_content_preparation_wizard.module
+├── ai_content_preparation_wizard.routing.yml
+├── ai_content_preparation_wizard.services.yml
+├── ai_content_preparation_wizard.permissions.yml
+├── ai_content_preparation_wizard.libraries.yml
 ├── config/
 │   ├── install/
-│   │   └── content_preparation_wizard.settings.yml
+│   │   └── ai_content_preparation_wizard.settings.yml
 │   └── schema/
-│       └── content_preparation_wizard.schema.yml
+│       └── ai_content_preparation_wizard.schema.yml
 ├── src/
 │   ├── Attribute/
 │   │   └── DocumentProcessor.php           # Plugin attribute
@@ -74,11 +74,11 @@ content_preparation_wizard/
 
 | File Path | Expected Namespace |
 |-----------|-------------------|
-| `src/Form/ContentPreparationWizardForm.php` | `Drupal\content_preparation_wizard\Form` |
-| `src/Plugin/DocumentProcessor/*.php` | `Drupal\content_preparation_wizard\Plugin\DocumentProcessor` |
-| `src/Service/*.php` | `Drupal\content_preparation_wizard\Service` |
-| `src/Attribute/DocumentProcessor.php` | `Drupal\content_preparation_wizard\Attribute` |
-| `src/DocumentProcessorPluginManager.php` | `Drupal\content_preparation_wizard` |
+| `src/Form/ContentPreparationWizardForm.php` | `Drupal\ai_content_preparation_wizard\Form` |
+| `src/Plugin/DocumentProcessor/*.php` | `Drupal\ai_content_preparation_wizard\Plugin\DocumentProcessor` |
+| `src/Service/*.php` | `Drupal\ai_content_preparation_wizard\Service` |
+| `src/Attribute/DocumentProcessor.php` | `Drupal\ai_content_preparation_wizard\Attribute` |
+| `src/DocumentProcessorPluginManager.php` | `Drupal\ai_content_preparation_wizard` |
 
 **Verdict: COMPLIANT** - Follows standard Drupal PSR-4 patterns
 
@@ -102,7 +102,7 @@ content_preparation_wizard/
 
 declare(strict_types=1);
 
-namespace Drupal\content_preparation_wizard\Attribute;
+namespace Drupal\ai_content_preparation_wizard\Attribute;
 
 use Drupal\Component\Plugin\Attribute\AttributeBase;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
@@ -156,7 +156,7 @@ protected function validateUploadedFile(FileInterface $file): bool {
 ### Permission Requirements
 
 ```yaml
-# content_preparation_wizard.permissions.yml
+# ai_content_preparation_wizard.permissions.yml
 administer content preparation wizard:
   title: 'Administer Content Preparation Wizard'
   description: 'Configure wizard settings and manage processors.'
@@ -176,8 +176,8 @@ use content preparation wizard:
 ### Required Schema
 
 ```yaml
-# config/schema/content_preparation_wizard.schema.yml
-content_preparation_wizard.settings:
+# config/schema/ai_content_preparation_wizard.schema.yml
+ai_content_preparation_wizard.settings:
   type: config_object
   label: 'Content Preparation Wizard Settings'
   mapping:
@@ -214,7 +214,7 @@ content_preparation_wizard.settings:
 ## 6. Libraries Definition
 
 ```yaml
-# content_preparation_wizard.libraries.yml
+# ai_content_preparation_wizard.libraries.yml
 wizard:
   version: VERSION
   css:
@@ -275,11 +275,11 @@ wizard:
 
 declare(strict_types=1);
 
-namespace Drupal\content_preparation_wizard\Service;
+namespace Drupal\ai_content_preparation_wizard\Service;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
-use Drupal\content_preparation_wizard\DocumentProcessorPluginManager;
+use Drupal\ai_content_preparation_wizard\DocumentProcessorPluginManager;
 
 /**
  * Handles document processing operations.

@@ -98,18 +98,18 @@ Each wizard step implemented as a separate route with its own controller or form
 ### Core Architecture
 
 ```
-ai_content_preparation_wizard/
-  ai_content_preparation_wizard.info.yml
-  ai_content_preparation_wizard.module
-  ai_content_preparation_wizard.routing.yml
-  ai_content_preparation_wizard.services.yml
-  ai_content_preparation_wizard.permissions.yml
-  ai_content_preparation_wizard.links.menu.yml
+ai_ai_content_preparation_wizard/
+  ai_ai_content_preparation_wizard.info.yml
+  ai_ai_content_preparation_wizard.module
+  ai_ai_content_preparation_wizard.routing.yml
+  ai_ai_content_preparation_wizard.services.yml
+  ai_ai_content_preparation_wizard.permissions.yml
+  ai_ai_content_preparation_wizard.links.menu.yml
   config/
     install/
-      ai_content_preparation_wizard.settings.yml
+      ai_ai_content_preparation_wizard.settings.yml
     schema/
-      ai_content_preparation_wizard.schema.yml
+      ai_ai_content_preparation_wizard.schema.yml
   src/
     Form/
       ContentPreparationWizardForm.php      # Main wizard form
@@ -166,7 +166,7 @@ Use `PrivateTempStore` for cross-request wizard state:
 
 ```php
 // Store wizard data
-$this->tempStoreFactory->get('ai_content_preparation_wizard')
+$this->tempStoreFactory->get('ai_ai_content_preparation_wizard')
   ->set('wizard_data', [
     'files' => $uploaded_files,
     'contexts' => $selected_contexts,
@@ -205,10 +205,10 @@ interface DocumentProcessorInterface extends PluginInspectionInterface {
    * @param \Drupal\file\FileInterface $file
    *   The file to process.
    *
-   * @return \Drupal\ai_content_preparation_wizard\ProcessedDocument
+   * @return \Drupal\ai_ai_content_preparation_wizard\ProcessedDocument
    *   The processed document with extracted content.
    *
-   * @throws \Drupal\ai_content_preparation_wizard\Exception\ProcessingException
+   * @throws \Drupal\ai_ai_content_preparation_wizard\Exception\ProcessingException
    */
   public function process(FileInterface $file): ProcessedDocument;
 
@@ -236,8 +236,8 @@ interface DocumentProcessorInterface extends PluginInspectionInterface {
 ### Configuration Entity for Settings
 
 ```yaml
-# config/schema/ai_content_preparation_wizard.schema.yml
-ai_content_preparation_wizard.settings:
+# config/schema/ai_ai_content_preparation_wizard.schema.yml
+ai_ai_content_preparation_wizard.settings:
   type: config_object
   label: 'Content Preparation Wizard settings'
   mapping:
@@ -394,7 +394,7 @@ public function generatePlan(
   string $template_id,
   ?string $refinement = NULL
 ): ContentPlan {
-  $template = $this->configFactory->get('ai_content_preparation_wizard.settings')
+  $template = $this->configFactory->get('ai_ai_content_preparation_wizard.settings')
     ->get('ai_templates')[$template_id];
 
   $prompt = $this->buildPrompt($template, $processed_documents, $contexts, $refinement);
@@ -486,7 +486,7 @@ Administrative interface at `/admin/config/content/content-preparation-wizard`:
 class ContentPreparationSettingsForm extends ConfigFormBase {
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
-    $config = $this->config('ai_content_preparation_wizard.settings');
+    $config = $this->config('ai_ai_content_preparation_wizard.settings');
 
     $form['processor_settings'] = [
       '#type' => 'details',
@@ -577,7 +577,7 @@ class ContentPreparationSettingsForm extends ConfigFormBase {
 
 ### Web Scraping Submodule
 
-The architecture supports a `ai_content_preparation_wizard_scraper` submodule that:
+The architecture supports a `ai_ai_content_preparation_wizard_scraper` submodule that:
 
 - Adds a "URL" input option alongside file upload in Step 1
 - Implements `UrlProcessor` plugins analogous to `DocumentProcessor`

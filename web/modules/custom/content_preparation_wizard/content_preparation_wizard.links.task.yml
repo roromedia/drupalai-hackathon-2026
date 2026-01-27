@@ -1,4 +1,0 @@
-content_preparation_wizard.settings:
-  title: 'Settings'
-  route_name: content_preparation_wizard.settings
-  base_route: content_preparation_wizard.settings

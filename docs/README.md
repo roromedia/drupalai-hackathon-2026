@@ -7,7 +7,7 @@ A Drupal module providing a 3-step wizard for preparing content from uploaded do
 | Document | Description |
 |----------|-------------|
 | [ADR-0001: Architecture](./adr/0001-content-preparation-wizard-architecture.md) | Architecture Decision Record with design decisions and rationale |
-| [DDD Architecture](./architecture/content_preparation_wizard_ddd_architecture.md) | Domain-Driven Design architecture with bounded contexts, entities, and services |
+| [DDD Architecture](./architecture/ai_content_preparation_wizard_ddd_architecture.md) | Domain-Driven Design architecture with bounded contexts, entities, and services |
 | [UI/UX Specification](./content-preparation-wizard-uiux-spec.md) | Complete UI/UX technical specification with wireframes and user flows |
 | [Compliance Report](./compliance-report.md) | Drupal coding standards compliance analysis |
 
@@ -84,7 +84,7 @@ The module uses Drupal's Plugin API for extensible document processing:
 ### Module Dependencies
 
 ```
-content_preparation_wizard
+ai_content_preparation_wizard
 ├── drupal:file
 ├── ai:ai
 ├── canvas:canvas
@@ -117,8 +117,8 @@ content_preparation_wizard
 
 namespace Drupal\my_module\Plugin\DocumentProcessor;
 
-use Drupal\content_preparation_wizard\Attribute\DocumentProcessor;
-use Drupal\content_preparation_wizard\Plugin\DocumentProcessor\DocumentProcessorBase;
+use Drupal\ai_content_preparation_wizard\Attribute\DocumentProcessor;
+use Drupal\ai_content_preparation_wizard\Plugin\DocumentProcessor\DocumentProcessorBase;
 
 #[DocumentProcessor(
   id: 'my_custom_processor',
@@ -144,15 +144,15 @@ Extend AI planning with specialized contexts for different content types.
 
 ### Planned Submodules
 
-1. **content_preparation_wizard_scraper** - Web scraping for URL-based content
-2. **content_preparation_wizard_batch** - Batch processing for multiple documents
-3. **content_preparation_wizard_api** - REST API for external integrations
+1. **ai_content_preparation_wizard_scraper** - Web scraping for URL-based content
+2. **ai_content_preparation_wizard_batch** - Batch processing for multiple documents
+3. **ai_content_preparation_wizard_api** - REST API for external integrations
 
 ---
 
 ## Quick Start
 
-1. Enable the module: `drush en content_preparation_wizard`
+1. Enable the module: `drush en ai_content_preparation_wizard`
 2. Configure settings: `/admin/config/content/preparation-wizard`
 3. Access wizard: `/admin/content/preparation-wizard`
 4. Upload documents, review AI plan, create Canvas page

@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document defines the Domain-Driven Design (DDD) architecture for the `content_preparation_wizard` Drupal module. The module implements a 3-step wizard that processes uploaded documents into AI-ready content for Canvas page creation, following Drupal coding standards and integrating with the existing AI ecosystem (ai, ai_agents, canvas, canvas_ai modules).
+This document defines the Domain-Driven Design (DDD) architecture for the `ai_content_preparation_wizard` Drupal module. The module implements a 3-step wizard that processes uploaded documents into AI-ready content for Canvas page creation, following Drupal coding standards and integrating with the existing AI ecosystem (ai, ai_agents, canvas, canvas_ai modules).
 
 ---
 
@@ -314,22 +314,22 @@ final class RefinementEntry {
 ### 3.1 Directory Structure
 
 ```
-web/modules/custom/content_preparation_wizard/
-|-- content_preparation_wizard.info.yml
-|-- content_preparation_wizard.module
-|-- content_preparation_wizard.services.yml
-|-- content_preparation_wizard.routing.yml
-|-- content_preparation_wizard.permissions.yml
-|-- content_preparation_wizard.links.menu.yml
-|-- content_preparation_wizard.libraries.yml
+web/modules/custom/ai_content_preparation_wizard/
+|-- ai_content_preparation_wizard.info.yml
+|-- ai_content_preparation_wizard.module
+|-- ai_content_preparation_wizard.services.yml
+|-- ai_content_preparation_wizard.routing.yml
+|-- ai_content_preparation_wizard.permissions.yml
+|-- ai_content_preparation_wizard.links.menu.yml
+|-- ai_content_preparation_wizard.libraries.yml
 |
 |-- config/
 |   |-- install/
-|   |   |-- content_preparation_wizard.settings.yml
-|   |   |-- content_preparation_wizard.canvas_template.default.yml
+|   |   |-- ai_content_preparation_wizard.settings.yml
+|   |   |-- ai_content_preparation_wizard.canvas_template.default.yml
 |   |
 |   |-- schema/
-|       |-- content_preparation_wizard.schema.yml
+|       |-- ai_content_preparation_wizard.schema.yml
 |
 |-- src/
 |   |-- Controller/
@@ -475,7 +475,7 @@ web/modules/custom/content_preparation_wizard/
 ```php
 <?php
 
-namespace Drupal\content_preparation_wizard\Attribute;
+namespace Drupal\ai_content_preparation_wizard\Attribute;
 
 use Drupal\Component\Plugin\Attribute\Plugin;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
@@ -501,11 +501,11 @@ class DocumentProcessor extends Plugin {
 ```php
 <?php
 
-namespace Drupal\content_preparation_wizard\Plugin\DocumentProcessor;
+namespace Drupal\ai_content_preparation_wizard\Plugin\DocumentProcessor;
 
 use Drupal\Core\Plugin\PluginBase;
-use Drupal\content_preparation_wizard\Model\ProcessedDocument;
-use Drupal\content_preparation_wizard\Model\DocumentMetadata;
+use Drupal\ai_content_preparation_wizard\Model\ProcessedDocument;
+use Drupal\ai_content_preparation_wizard\Model\DocumentMetadata;
 use Drupal\file\FileInterface;
 
 /**
@@ -546,7 +546,7 @@ interface DocumentProcessorInterface {
 ```php
 <?php
 
-namespace Drupal\content_preparation_wizard\Attribute;
+namespace Drupal\ai_content_preparation_wizard\Attribute;
 
 use Drupal\Component\Plugin\Attribute\Plugin;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
@@ -571,29 +571,29 @@ class AIContextProvider extends Plugin {
 ### 3.3 Service Definitions
 
 ```yaml
-# content_preparation_wizard.services.yml
+# ai_content_preparation_wizard.services.yml
 
 services:
   # Plugin Managers
   plugin.manager.document_processor:
-    class: Drupal\content_preparation_wizard\PluginManager\DocumentProcessorPluginManager
+    class: Drupal\ai_content_preparation_wizard\PluginManager\DocumentProcessorPluginManager
     parent: default_plugin_manager
 
   plugin.manager.ai_context_provider:
-    class: Drupal\content_preparation_wizard\PluginManager\AIContextProviderPluginManager
+    class: Drupal\ai_content_preparation_wizard\PluginManager\AIContextProviderPluginManager
     parent: default_plugin_manager
 
   # Core Services
-  content_preparation_wizard.document_processing:
-    class: Drupal\content_preparation_wizard\Service\DocumentProcessingService
+  ai_content_preparation_wizard.document_processing:
+    class: Drupal\ai_content_preparation_wizard\Service\DocumentProcessingService
     arguments:
       - '@plugin.manager.document_processor'
       - '@file_system'
       - '@logger.factory'
       - '@event_dispatcher'
 
-  content_preparation_wizard.wizard_session_manager:
-    class: Drupal\content_preparation_wizard\Service\WizardSessionManager
+  ai_content_preparation_wizard.wizard_session_manager:
+    class: Drupal\ai_content_preparation_wizard\Service\WizardSessionManager
     arguments:
       - '@tempstore.private'
       - '@current_user'
@@ -601,8 +601,8 @@ services:
       - '@datetime.time'
       - '@event_dispatcher'
 
-  content_preparation_wizard.content_plan_generator:
-    class: Drupal\content_preparation_wizard\Service\ContentPlanGenerator
+  ai_content_preparation_wizard.content_plan_generator:
+    class: Drupal\ai_content_preparation_wizard\Service\ContentPlanGenerator
     arguments:
       - '@ai.provider'
       - '@plugin.manager.ai_context_provider'
@@ -612,29 +612,29 @@ services:
       - '@logger.factory'
       - '@event_dispatcher'
 
-  content_preparation_wizard.canvas_creator:
-    class: Drupal\content_preparation_wizard\Service\CanvasCreator
+  ai_content_preparation_wizard.canvas_creator:
+    class: Drupal\ai_content_preparation_wizard\Service\CanvasCreator
     arguments:
       - '@entity_type.manager'
-      - '@content_preparation_wizard.content_plan_generator'
+      - '@ai_content_preparation_wizard.content_plan_generator'
       - '@logger.factory'
       - '@event_dispatcher'
 
   # Supporting Services
-  content_preparation_wizard.pandoc_converter:
-    class: Drupal\content_preparation_wizard\Service\PandocConverter
+  ai_content_preparation_wizard.pandoc_converter:
+    class: Drupal\ai_content_preparation_wizard\Service\PandocConverter
     arguments:
       - '@config.factory'
       - '@logger.factory'
 
-  content_preparation_wizard.metadata_extractor:
-    class: Drupal\content_preparation_wizard\Service\MetadataExtractor
+  ai_content_preparation_wizard.metadata_extractor:
+    class: Drupal\ai_content_preparation_wizard\Service\MetadataExtractor
     arguments:
       - '@file_system'
 
   # Repository
-  content_preparation_wizard.session_repository:
-    class: Drupal\content_preparation_wizard\Repository\WizardSessionRepository
+  ai_content_preparation_wizard.session_repository:
+    class: Drupal\ai_content_preparation_wizard\Repository\WizardSessionRepository
     arguments:
       - '@tempstore.private'
       - '@current_user'
@@ -643,9 +643,9 @@ services:
 ### 3.4 Config Schema
 
 ```yaml
-# config/schema/content_preparation_wizard.schema.yml
+# config/schema/ai_content_preparation_wizard.schema.yml
 
-content_preparation_wizard.settings:
+ai_content_preparation_wizard.settings:
   type: config_object
   label: 'Content Preparation Wizard settings'
   mapping:
@@ -676,7 +676,7 @@ content_preparation_wizard.settings:
       type: integer
       label: 'Maximum refinement iterations'
 
-content_preparation_wizard.canvas_template.*:
+ai_content_preparation_wizard.canvas_template.*:
   type: config_entity
   label: 'Canvas Template'
   mapping:
@@ -907,9 +907,9 @@ preferred_model: gpt-4
 ```php
 <?php
 
-namespace Drupal\content_preparation_wizard\Service;
+namespace Drupal\ai_content_preparation_wizard\Service;
 
-use Drupal\content_preparation_wizard\Model\ProcessedDocument;
+use Drupal\ai_content_preparation_wizard\Model\ProcessedDocument;
 use Drupal\file\FileInterface;
 
 /**
@@ -923,10 +923,10 @@ interface DocumentProcessingServiceInterface {
    * @param \Drupal\file\FileInterface $file
    *   The uploaded file.
    *
-   * @return \Drupal\content_preparation_wizard\Model\ProcessedDocument
+   * @return \Drupal\ai_content_preparation_wizard\Model\ProcessedDocument
    *   The processed document.
    *
-   * @throws \Drupal\content_preparation_wizard\Exception\DocumentProcessingException
+   * @throws \Drupal\ai_content_preparation_wizard\Exception\DocumentProcessingException
    */
   public function process(FileInterface $file): ProcessedDocument;
 
@@ -955,11 +955,11 @@ interface DocumentProcessingServiceInterface {
 ```php
 <?php
 
-namespace Drupal\content_preparation_wizard\Service;
+namespace Drupal\ai_content_preparation_wizard\Service;
 
-use Drupal\content_preparation_wizard\Model\ContentPlan;
-use Drupal\content_preparation_wizard\Model\ProcessedDocument;
-use Drupal\content_preparation_wizard\Model\AIContext;
+use Drupal\ai_content_preparation_wizard\Model\ContentPlan;
+use Drupal\ai_content_preparation_wizard\Model\ProcessedDocument;
+use Drupal\ai_content_preparation_wizard\Model\AIContext;
 
 /**
  * Interface for content plan generation service.
@@ -969,17 +969,17 @@ interface ContentPlanGeneratorInterface {
   /**
    * Generates a content plan from processed documents.
    *
-   * @param \Drupal\content_preparation_wizard\Model\ProcessedDocument[] $documents
+   * @param \Drupal\ai_content_preparation_wizard\Model\ProcessedDocument[] $documents
    *   Array of processed documents.
-   * @param \Drupal\content_preparation_wizard\Model\AIContext[] $contexts
+   * @param \Drupal\ai_content_preparation_wizard\Model\AIContext[] $contexts
    *   Array of selected AI contexts.
    * @param string|null $templateId
    *   Optional template ID.
    *
-   * @return \Drupal\content_preparation_wizard\Model\ContentPlan
+   * @return \Drupal\ai_content_preparation_wizard\Model\ContentPlan
    *   The generated content plan.
    *
-   * @throws \Drupal\content_preparation_wizard\Exception\PlanGenerationException
+   * @throws \Drupal\ai_content_preparation_wizard\Exception\PlanGenerationException
    */
   public function generate(
     array $documents,
@@ -990,12 +990,12 @@ interface ContentPlanGeneratorInterface {
   /**
    * Refines an existing content plan based on user feedback.
    *
-   * @param \Drupal\content_preparation_wizard\Model\ContentPlan $plan
+   * @param \Drupal\ai_content_preparation_wizard\Model\ContentPlan $plan
    *   The current plan.
    * @param string $refinementPrompt
    *   User's refinement instructions.
    *
-   * @return \Drupal\content_preparation_wizard\Model\ContentPlan
+   * @return \Drupal\ai_content_preparation_wizard\Model\ContentPlan
    *   The refined content plan.
    */
   public function refine(ContentPlan $plan, string $refinementPrompt): ContentPlan;
@@ -1006,10 +1006,10 @@ interface ContentPlanGeneratorInterface {
 ```php
 <?php
 
-namespace Drupal\content_preparation_wizard\Service;
+namespace Drupal\ai_content_preparation_wizard\Service;
 
-use Drupal\content_preparation_wizard\Model\ContentPlan;
-use Drupal\content_preparation_wizard\Entity\CanvasTemplateInterface;
+use Drupal\ai_content_preparation_wizard\Model\ContentPlan;
+use Drupal\ai_content_preparation_wizard\Entity\CanvasTemplateInterface;
 use Drupal\canvas\Entity\Page;
 
 /**
@@ -1020,24 +1020,24 @@ interface CanvasCreatorInterface {
   /**
    * Creates a Canvas page from a content plan.
    *
-   * @param \Drupal\content_preparation_wizard\Model\ContentPlan $plan
+   * @param \Drupal\ai_content_preparation_wizard\Model\ContentPlan $plan
    *   The approved content plan.
-   * @param \Drupal\content_preparation_wizard\Entity\CanvasTemplateInterface $template
+   * @param \Drupal\ai_content_preparation_wizard\Entity\CanvasTemplateInterface $template
    *   The canvas template to use.
    *
    * @return \Drupal\canvas\Entity\Page
    *   The created Canvas page.
    *
-   * @throws \Drupal\content_preparation_wizard\Exception\CanvasCreationException
+   * @throws \Drupal\ai_content_preparation_wizard\Exception\CanvasCreationException
    */
   public function create(ContentPlan $plan, CanvasTemplateInterface $template): Page;
 
   /**
    * Maps plan sections to Canvas components.
    *
-   * @param \Drupal\content_preparation_wizard\Model\ContentPlan $plan
+   * @param \Drupal\ai_content_preparation_wizard\Model\ContentPlan $plan
    *   The content plan.
-   * @param \Drupal\content_preparation_wizard\Entity\CanvasTemplateInterface $template
+   * @param \Drupal\ai_content_preparation_wizard\Entity\CanvasTemplateInterface $template
    *   The canvas template.
    *
    * @return array
@@ -1055,7 +1055,7 @@ interface CanvasCreatorInterface {
 ### 7.1 Permissions
 
 ```yaml
-# content_preparation_wizard.permissions.yml
+# ai_content_preparation_wizard.permissions.yml
 
 access content preparation wizard:
   title: 'Access Content Preparation Wizard'
@@ -1102,8 +1102,8 @@ Developers can add custom document processors by implementing the `DocumentProce
 
 namespace Drupal\mymodule\Plugin\DocumentProcessor;
 
-use Drupal\content_preparation_wizard\Attribute\DocumentProcessor;
-use Drupal\content_preparation_wizard\Plugin\DocumentProcessor\DocumentProcessorBase;
+use Drupal\ai_content_preparation_wizard\Attribute\DocumentProcessor;
+use Drupal\ai_content_preparation_wizard\Plugin\DocumentProcessor\DocumentProcessorBase;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 
 #[DocumentProcessor(
@@ -1124,8 +1124,8 @@ class WebScraperProcessor extends DocumentProcessorBase {
 
 namespace Drupal\mymodule\Plugin\AIContextProvider;
 
-use Drupal\content_preparation_wizard\Attribute\AIContextProvider;
-use Drupal\content_preparation_wizard\Plugin\AIContextProvider\AIContextProviderBase;
+use Drupal\ai_content_preparation_wizard\Attribute\AIContextProvider;
+use Drupal\ai_content_preparation_wizard\Plugin\AIContextProvider\AIContextProviderBase;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 
 #[AIContextProvider(
@@ -1146,7 +1146,7 @@ class LegalDocumentContext extends AIContextProviderBase {
 
 namespace Drupal\mymodule\EventSubscriber;
 
-use Drupal\content_preparation_wizard\Event\ContentPlanGeneratedEvent;
+use Drupal\ai_content_preparation_wizard\Event\ContentPlanGeneratedEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 class MyPlanSubscriber implements EventSubscriberInterface {
@@ -1265,10 +1265,10 @@ class MyPlanSubscriber implements EventSubscriberInterface {
 
 ### 11.1 Planned Submodules
 
-1. **content_preparation_wizard_web_scraper** - Web page to markdown conversion
-2. **content_preparation_wizard_batch** - Bulk document processing
-3. **content_preparation_wizard_templates** - Additional canvas templates
-4. **content_preparation_wizard_api** - REST API for headless usage
+1. **ai_content_preparation_wizard_web_scraper** - Web page to markdown conversion
+2. **ai_content_preparation_wizard_batch** - Bulk document processing
+3. **ai_content_preparation_wizard_templates** - Additional canvas templates
+4. **ai_content_preparation_wizard_api** - REST API for headless usage
 
 ### 11.2 Potential Integrations
 

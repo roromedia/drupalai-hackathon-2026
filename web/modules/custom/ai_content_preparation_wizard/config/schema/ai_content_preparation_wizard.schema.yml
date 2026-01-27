@@ -1,0 +1,31 @@
+ai_content_preparation_wizard.settings:
+  type: config_object
+  label: 'Content Preparation Wizard settings'
+  mapping:
+    pandoc_path:
+      type: string
+      label: 'Pandoc executable path'
+    max_file_size:
+      type: integer
+      label: 'Maximum file size in bytes'
+    allowed_extensions:
+      type: sequence
+      label: 'Allowed file extensions'
+      sequence:
+        type: string
+        label: 'File extension'
+    default_ai_provider:
+      type: string
+      label: 'Default AI provider'
+    default_ai_model:
+      type: string
+      label: 'Default AI model'
+    session_timeout:
+      type: integer
+      label: 'Session timeout in seconds'
+    enable_refinement:
+      type: boolean
+      label: 'Enable content plan refinement'
+    max_refinement_iterations:
+      type: integer
+      label: 'Maximum refinement iterations'

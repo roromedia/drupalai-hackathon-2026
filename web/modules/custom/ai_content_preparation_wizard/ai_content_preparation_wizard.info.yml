@@ -1,0 +1,11 @@
+name: 'Content Preparation Wizard'
+type: module
+description: 'A 3-step wizard for preparing content from uploaded documents using AI-assisted planning and Canvas page creation.'
+package: Content
+core_version_requirement: ^10.3 || ^11
+configure: ai_content_preparation_wizard.settings
+dependencies:
+  - drupal:file
+  - ai:ai
+  - canvas:canvas
+  - ctools:ctools
