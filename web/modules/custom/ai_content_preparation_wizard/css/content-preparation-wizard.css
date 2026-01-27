@@ -3,38 +3,441 @@
  * Styles for the Content Preparation Wizard.
  */
 
+/* ==========================================================================
+   Wizard Container
+   ========================================================================== */
+
 .content-preparation-wizard {
-  max-width: 800px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem;
 }
 
-.content-preparation-wizard__steps {
-  display: flex;
-  justify-content: space-between;
+/* ==========================================================================
+   Wizard Step Bar
+   ========================================================================== */
+
+.content-preparation-wizard .wizard-steps {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
   margin-bottom: 2rem;
-  padding: 0;
+  padding: 1.5rem 1rem;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   list-style: none;
 }
 
-.content-preparation-wizard__step {
-  flex: 1;
-  text-align: center;
-  padding: 1rem;
-  background-color: #f5f5f5;
-  border-bottom: 3px solid #ccc;
+.content-preparation-wizard .wizard-step {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  position: relative;
+  color: #6c757d;
+  font-weight: 500;
+  transition: all 0.3s ease;
 }
 
-.content-preparation-wizard__step--active {
-  background-color: #e3f2fd;
-  border-bottom-color: #1976d2;
+.content-preparation-wizard .wizard-step:not(:last-child) {
+  margin-right: 40px;
 }
 
-.content-preparation-wizard__step--completed {
-  background-color: #e8f5e9;
-  border-bottom-color: #4caf50;
+.content-preparation-wizard .wizard-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: -30px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 2px;
+  background-color: #dee2e6;
+  transition: background-color 0.3s ease;
 }
 
-.content-preparation-wizard__content {
+.content-preparation-wizard .wizard-step .step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #dee2e6;
+  color: #6c757d;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-right: 0.75rem;
+  transition: all 0.3s ease;
+}
+
+.content-preparation-wizard .wizard-step .step-label {
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+/* Active step */
+.content-preparation-wizard .wizard-step.active {
+  color: #0d6efd;
+}
+
+.content-preparation-wizard .wizard-step.active .step-number {
+  background-color: #0d6efd;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.35);
+}
+
+/* Completed step */
+.content-preparation-wizard .wizard-step.completed {
+  color: #198754;
+}
+
+.content-preparation-wizard .wizard-step.completed .step-number {
+  background-color: #198754;
+  color: #fff;
+}
+
+.content-preparation-wizard .wizard-step.completed::after {
+  background-color: #198754;
+}
+
+/* ==========================================================================
+   Step Content
+   ========================================================================== */
+
+.content-preparation-wizard .wizard-step-content {
   padding: 1.5rem;
-  border: 1px solid #ddd;
+  background-color: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* ==========================================================================
+   Step 2: Split Layout
+   ========================================================================== */
+
+.content-preparation-wizard .step2-split-layout {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  min-height: 500px;
+}
+
+@media (max-width: 992px) {
+  .content-preparation-wizard .step2-split-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Markdown Preview Panel */
+.content-preparation-wizard .markdown-preview-panel {
+  display: flex !important;
+  flex-direction: column;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+  overflow: hidden;
+  min-height: 400px;
+}
+
+.content-preparation-wizard .markdown-preview-header {
+  padding: 0.75rem 1rem;
+  background-color: #343a40;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.content-preparation-wizard .markdown-preview-header::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background-color: #28a745;
+  border-radius: 50%;
+}
+
+.content-preparation-wizard .markdown-preview-content {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: 550px;
+  min-height: 300px;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Consolas', monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.content-preparation-wizard .markdown-preview-content .document-separator {
+  margin: 1.5rem 0 1rem;
+  padding: 0.5rem 0.75rem;
+  background-color: #2d2d2d;
+  border-left: 3px solid #0d6efd;
+  color: #9cdcfe;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Plan Review Panel */
+.content-preparation-wizard .plan-review-panel {
+  display: flex !important;
+  flex-direction: column;
+  background-color: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.25rem;
+  overflow: hidden;
+}
+
+.content-preparation-wizard .plan-preview {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 350px;
+  padding-right: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.content-preparation-wizard .plan-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background-color: #e9ecef;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.content-preparation-wizard .plan-metadata > div {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Sections display */
+.content-preparation-wizard .plan-sections-list {
+  margin-top: 1rem;
+}
+
+.content-preparation-wizard .plan-sections-list > .form-wrapper {
+  margin-bottom: 0.5rem;
+}
+
+.content-preparation-wizard .plan-sections-list details {
+  margin-bottom: 0.5rem;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-left: 0.5rem;
+}
+
+.content-preparation-wizard .plan-sections-list details summary {
+  padding: 0.75rem 1rem 0.75rem 1.75rem;
+  background-color: #f8f9fa;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: background-color 0.2s ease;
+  list-style-position: outside;
+}
+
+.content-preparation-wizard .plan-sections-list details summary:hover {
+  background-color: #e9ecef;
+}
+
+.content-preparation-wizard .plan-sections-list details summary::marker {
+  color: #6c757d;
+}
+
+.content-preparation-wizard .plan-sections-list details[open] summary {
+  border-bottom: 1px solid #dee2e6;
+}
+
+.content-preparation-wizard .plan-sections-list details > .details-wrapper {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #495057;
+}
+
+/* Refinement section */
+.content-preparation-wizard .refinement-section {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid #dee2e6;
+}
+
+.content-preparation-wizard .refinement-section .form-textarea {
+  width: 100%;
+  min-height: 70px;
+  resize: vertical;
+  font-size: 0.875rem;
+}
+
+.content-preparation-wizard .refinement-section .form-submit {
+  margin-top: 0.75rem;
+}
+
+/* ==========================================================================
+   Form Actions
+   ========================================================================== */
+
+.content-preparation-wizard .form-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #dee2e6;
+}
+
+.content-preparation-wizard .form-actions .button,
+.content-preparation-wizard .form-actions .form-submit {
+  padding: 0.625rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.content-preparation-wizard .form-actions .button--primary,
+.content-preparation-wizard .form-actions input[type="submit"].button--primary {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: #fff;
+}
+
+.content-preparation-wizard .form-actions .button--primary:hover {
+  background-color: #0b5ed7;
+  border-color: #0a58ca;
+}
+
+/* ==========================================================================
+   Upload Area (Step 1)
+   ========================================================================== */
+
+.content-preparation-wizard .wizard-step-content .form-managed-file {
+  border: 2px dashed #dee2e6;
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.content-preparation-wizard .wizard-step-content .form-managed-file:hover {
+  border-color: #0d6efd;
+  background-color: #f8f9ff;
+}
+
+/* ==========================================================================
+   Final Preview (Step 3)
+   ========================================================================== */
+
+.content-preparation-wizard .final-preview {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.content-preparation-wizard .final-preview h3 {
+  margin-top: 0;
+  color: #212529;
+}
+
+.content-preparation-wizard .page-settings {
+  background-color: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+/* ==========================================================================
+   Scrollbar Styling
+   ========================================================================== */
+
+.content-preparation-wizard .markdown-preview-content::-webkit-scrollbar,
+.content-preparation-wizard .plan-preview::-webkit-scrollbar {
+  width: 8px;
+}
+
+.content-preparation-wizard .markdown-preview-content::-webkit-scrollbar-track,
+.content-preparation-wizard .plan-preview::-webkit-scrollbar-track {
+  background: #2d2d2d;
   border-radius: 4px;
+}
+
+.content-preparation-wizard .markdown-preview-content::-webkit-scrollbar-thumb,
+.content-preparation-wizard .plan-preview::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+.content-preparation-wizard .markdown-preview-content::-webkit-scrollbar-thumb:hover,
+.content-preparation-wizard .plan-preview::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}
+
+.content-preparation-wizard .plan-preview::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.content-preparation-wizard .plan-preview::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+}
+
+.content-preparation-wizard .plan-preview::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Firefox scrollbar */
+.content-preparation-wizard .markdown-preview-content {
+  scrollbar-width: thin;
+  scrollbar-color: #555 #2d2d2d;
+}
+
+.content-preparation-wizard .plan-preview {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+/* ==========================================================================
+   Form Elements Styling
+   ========================================================================== */
+
+.content-preparation-wizard .form-item {
+  margin-bottom: 1rem;
+}
+
+.content-preparation-wizard .form-item label {
+  font-weight: 600;
+  margin-bottom: 0.375rem;
+  display: block;
+  font-size: 0.875rem;
+}
+
+.content-preparation-wizard .form-text,
+.content-preparation-wizard .form-textarea,
+.content-preparation-wizard .form-select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.content-preparation-wizard .form-text:focus,
+.content-preparation-wizard .form-textarea:focus,
+.content-preparation-wizard .form-select:focus {
+  border-color: #86b7fe;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
 }

@@ -658,10 +658,24 @@ PROMPT;
     // Use provided ID or generate one.
     $id = $sectionData['id'] ?? sprintf('section_%03d', $index + 1);
 
+    // Ensure content is a string (AI may return array).
+    $content = $sectionData['content'] ?? '';
+    if (is_array($content)) {
+      $content = implode("\n\n", array_map(function ($item) {
+        return is_array($item) ? json_encode($item) : (string) $item;
+      }, $content));
+    }
+
+    // Ensure title is a string.
+    $title = $sectionData['title'] ?? 'Untitled Section';
+    if (is_array($title)) {
+      $title = implode(' ', $title);
+    }
+
     return new PlanSection(
       id: $id,
-      title: $sectionData['title'] ?? 'Untitled Section',
-      content: $sectionData['content'] ?? '',
+      title: (string) $title,
+      content: (string) $content,
       componentType: $sectionData['component_type'] ?? 'text',
       order: (int) ($sectionData['order'] ?? $index + 1),
       componentConfig: $sectionData['component_config'] ?? [],

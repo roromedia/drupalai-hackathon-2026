@@ -76,8 +76,8 @@ final class ContentPreparationWizardForm extends FormBase {
     // Attach library.
     $form['#attached']['library'][] = 'ai_content_preparation_wizard/wizard';
 
-    // Build form wrapper for AJAX.
-    $form['#prefix'] = '<div id="wizard-form-wrapper">';
+    // Build form wrapper for AJAX with main container class.
+    $form['#prefix'] = '<div id="wizard-form-wrapper" class="content-preparation-wizard">';
     $form['#suffix'] = '</div>';
 
     // Build step indicator.
@@ -217,6 +217,7 @@ final class ContentPreparationWizardForm extends FormBase {
   protected function buildStep2(array &$form, FormStateInterface $form_state): void {
     $session = $this->sessionManager->getSession();
     $plan = $session?->getContentPlan();
+    $processedDocs = $session?->getProcessedDocuments() ?? [];
 
     $form['step2'] = [
       '#type' => 'container',
@@ -224,25 +225,53 @@ final class ContentPreparationWizardForm extends FormBase {
     ];
 
     if ($plan) {
-      $form['step2']['plan_preview'] = [
+      // Split layout container.
+      $form['step2']['split_layout'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['step2-split-layout']],
+      ];
+
+      // Left panel: Markdown Preview.
+      $form['step2']['split_layout']['markdown_panel'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['markdown-preview-panel']],
+      ];
+
+      $form['step2']['split_layout']['markdown_panel']['header'] = [
+        '#markup' => '<div class="markdown-preview-header">' . $this->t('Source Document Preview') . '</div>',
+      ];
+
+      // Build markdown content from processed documents.
+      $markdownContent = $this->buildMarkdownPreview($processedDocs);
+      $form['step2']['split_layout']['markdown_panel']['content'] = [
+        '#markup' => '<div class="markdown-preview-content">' . $markdownContent . '</div>',
+      ];
+
+      // Right panel: Plan Review.
+      $form['step2']['split_layout']['plan_panel'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['plan-review-panel']],
+      ];
+
+      $form['step2']['split_layout']['plan_panel']['plan_preview'] = [
         '#type' => 'container',
         '#attributes' => ['id' => 'plan-preview-wrapper', 'class' => ['plan-preview']],
       ];
 
-      $form['step2']['plan_preview']['title'] = [
+      $form['step2']['split_layout']['plan_panel']['plan_preview']['title'] = [
         '#type' => 'textfield',
         '#title' => $this->t('Page Title'),
         '#default_value' => $plan->title,
         '#required' => TRUE,
       ];
 
-      $form['step2']['plan_preview']['summary'] = [
+      $form['step2']['split_layout']['plan_panel']['plan_preview']['summary'] = [
         '#type' => 'item',
         '#title' => $this->t('Summary'),
         '#markup' => '<p>' . $plan->summary . '</p>',
       ];
 
-      $form['step2']['plan_preview']['metadata'] = [
+      $form['step2']['split_layout']['plan_panel']['plan_preview']['metadata'] = [
         '#type' => 'container',
         '#attributes' => ['class' => ['plan-metadata']],
         'audience' => [
@@ -266,13 +295,20 @@ final class ContentPreparationWizardForm extends FormBase {
         ];
       }
 
-      $form['step2']['plan_preview']['sections'] = [
-        '#type' => 'fieldset',
+      $form['step2']['split_layout']['plan_panel']['plan_preview']['sections'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['plan-sections-list']],
         '#title' => $this->t('Content Sections'),
         'items' => $sections,
       ];
 
-      $form['step2']['refinement'] = [
+      // Refinement section.
+      $form['step2']['split_layout']['plan_panel']['refinement_section'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['refinement-section']],
+      ];
+
+      $form['step2']['split_layout']['plan_panel']['refinement_section']['refinement'] = [
         '#type' => 'textarea',
         '#title' => $this->t('Refine the Plan'),
         '#description' => $this->t('Enter instructions to modify the content plan.'),
@@ -280,7 +316,7 @@ final class ContentPreparationWizardForm extends FormBase {
         '#rows' => 3,
       ];
 
-      $form['step2']['regenerate'] = [
+      $form['step2']['split_layout']['plan_panel']['refinement_section']['regenerate'] = [
         '#type' => 'submit',
         '#value' => $this->t('Regenerate Plan'),
         '#submit' => ['::regeneratePlan'],
@@ -417,6 +453,36 @@ final class ContentPreparationWizardForm extends FormBase {
       '#value' => $this->t('Create Canvas Page Now'),
       '#button_type' => 'primary',
     ];
+  }
+
+  /**
+   * Builds the markdown preview content from processed documents.
+   *
+   * @param array $processedDocs
+   *   Array of ProcessedDocument objects.
+   *
+   * @return string
+   *   HTML-escaped markdown content for display.
+   */
+  protected function buildMarkdownPreview(array $processedDocs): string {
+    if (empty($processedDocs)) {
+      return '<em>' . $this->t('No documents available for preview.') . '</em>';
+    }
+
+    $output = [];
+    foreach ($processedDocs as $doc) {
+      if (!isset($doc->markdownContent)) {
+        continue;
+      }
+
+      // Add document separator with filename.
+      $output[] = '<div class="document-separator">' . htmlspecialchars($doc->fileName ?? 'Document', ENT_QUOTES, 'UTF-8') . '</div>';
+
+      // Add the markdown content (escaped for safe display).
+      $output[] = htmlspecialchars($doc->markdownContent, ENT_QUOTES, 'UTF-8');
+    }
+
+    return implode("\n", $output);
   }
 
   /**
