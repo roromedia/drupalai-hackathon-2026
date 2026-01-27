@@ -207,6 +207,7 @@ final class ContentPreparationWizardForm extends FormBase {
 
     $form['actions']['next'] = [
       '#type' => 'submit',
+      '#name' => 'op',
       '#value' => $this->t('Next'),
       '#submit' => ['::submitStep1'],
       '#ajax' => [
@@ -620,7 +621,9 @@ final class ContentPreparationWizardForm extends FormBase {
     }
 
     try {
-      $refinedPlan = $this->planGenerator->refine($plan, $refinement);
+      // Get the selected contexts from session to apply during refinement.
+      $contexts = $session->getSelectedContexts();
+      $refinedPlan = $this->planGenerator->refine($plan, $refinement, $contexts);
       $session->setContentPlan($refinedPlan);
       $this->sessionManager->updateSession($session);
       $this->messenger()->addStatus($this->t('Plan has been updated.'));

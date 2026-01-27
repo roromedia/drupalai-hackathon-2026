@@ -122,7 +122,7 @@ class ContentPlanGenerator implements ContentPlanGeneratorInterface {
   /**
    * {@inheritdoc}
    */
-  public function refine(ContentPlan $plan, string $refinementPrompt, array $options = []): ContentPlan {
+  public function refine(ContentPlan $plan, string $refinementPrompt, array $contexts = [], array $options = []): ContentPlan {
     if (!$this->canRefine($plan)) {
       throw new PlanGenerationException(
         sprintf(
@@ -142,9 +142,12 @@ class ContentPlanGenerator implements ContentPlanGeneratorInterface {
 
     [$provider, $modelId] = $providerInfo;
 
+    // Build the context content.
+    $contextContent = $this->buildContextContent($contexts);
+
     // Build the refinement prompt.
     $systemPrompt = $this->buildRefinementSystemPrompt();
-    $userMessage = $this->buildRefinementUserMessage($plan, $refinementPrompt);
+    $userMessage = $this->buildRefinementUserMessage($plan, $refinementPrompt, $contextContent);
 
     // Execute the AI call with retries.
     $responseData = $this->executeAiCallWithRetries(
@@ -457,18 +460,28 @@ PROMPT;
    *   The existing plan.
    * @param string $refinementPrompt
    *   The user's refinement instructions.
+   * @param string $contextContent
+   *   The formatted context content to include.
    *
    * @return string
    *   The user message.
    */
-  protected function buildRefinementUserMessage(ContentPlan $plan, string $refinementPrompt): string {
+  protected function buildRefinementUserMessage(ContentPlan $plan, string $refinementPrompt, string $contextContent = ''): string {
     $currentPlanJson = Json::encode($plan->toArray());
 
-    return sprintf(
-      "Current plan:\n%s\n\nRefinement instructions:\n%s\n\nRespond with only valid JSON, no additional text.",
+    $message = sprintf(
+      "Current plan:\n%s\n\nRefinement instructions:\n%s",
       $currentPlanJson,
       $refinementPrompt
     );
+
+    if (!empty($contextContent)) {
+      $message .= "\n\n## Context Guidelines\n\nWhen refining the plan, ensure the changes align with these guidelines:\n\n" . $contextContent;
+    }
+
+    $message .= "\n\nRespond with only valid JSON, no additional text.";
+
+    return $message;
   }
 
   /**

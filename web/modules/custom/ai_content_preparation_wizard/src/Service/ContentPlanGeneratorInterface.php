@@ -52,6 +52,8 @@ interface ContentPlanGeneratorInterface {
    *   The existing plan to refine.
    * @param string $refinementPrompt
    *   The user's refinement instructions.
+   * @param array<\Drupal\ai_content_preparation_wizard\Model\AIContext|string> $contexts
+   *   An array of AI contexts to consider during refinement.
    * @param array<string, mixed> $options
    *   Additional options for refinement.
    *
@@ -61,7 +63,7 @@ interface ContentPlanGeneratorInterface {
    * @throws \Drupal\ai_content_preparation_wizard\Exception\PlanGenerationException
    *   If refinement fails.
    */
-  public function refine(ContentPlan $plan, string $refinementPrompt, array $options = []): ContentPlan;
+  public function refine(ContentPlan $plan, string $refinementPrompt, array $contexts = [], array $options = []): ContentPlan;
 
   /**
    * Checks if refinement is available for a plan.

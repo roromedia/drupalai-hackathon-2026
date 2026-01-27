@@ -87,8 +87,9 @@ final class WizardAjaxController extends ControllerBase {
         return $response;
       }
 
-      // Refine the plan.
-      $refinedPlan = $this->planGenerator->refine($plan, $refinementPrompt);
+      // Refine the plan with selected contexts.
+      $contexts = $session->getSelectedContexts();
+      $refinedPlan = $this->planGenerator->refine($plan, $refinementPrompt, $contexts);
       $this->sessionManager->setContentPlan($refinedPlan);
 
       $response->addCommand(new MessageCommand(

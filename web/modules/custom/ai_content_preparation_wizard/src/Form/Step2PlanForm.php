@@ -443,7 +443,9 @@ class Step2PlanForm extends FormBase {
     }
 
     try {
-      $refined_plan = $this->planGenerator->refine($plan, $instructions);
+      // Get the selected contexts from session to apply during refinement.
+      $contexts = $session->getSelectedContexts();
+      $refined_plan = $this->planGenerator->refine($plan, $instructions, $contexts);
 
       // Update title if changed.
       $new_title = trim($form_state->getValue('title', ''));
