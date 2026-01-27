@@ -1,24 +1,9 @@
-# Main wizard entry point (first step).
+# Main wizard form.
 ai_content_preparation_wizard.wizard:
   path: '/admin/content/preparation-wizard'
   defaults:
-    _wizard: '\Drupal\ai_content_preparation_wizard\Form\ContentPreparationWizard'
+    _form: '\Drupal\ai_content_preparation_wizard\Form\ContentPreparationWizardForm'
     _title: 'Content Preparation Wizard'
-    tempstore_id: 'ai_content_preparation_wizard'
-    machine_name: 'ai_content_preparation_wizard'
-  requirements:
-    _permission: 'access content preparation wizard'
-  options:
-    _admin_route: TRUE
-
-# Wizard with step parameter.
-ai_content_preparation_wizard.wizard.step:
-  path: '/admin/content/preparation-wizard/{step}'
-  defaults:
-    _wizard: '\Drupal\ai_content_preparation_wizard\Form\ContentPreparationWizard'
-    _title: 'Content Preparation Wizard'
-    tempstore_id: 'ai_content_preparation_wizard'
-    machine_name: 'ai_content_preparation_wizard'
   requirements:
     _permission: 'access content preparation wizard'
   options:
