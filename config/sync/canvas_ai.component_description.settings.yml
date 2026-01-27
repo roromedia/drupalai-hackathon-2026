@@ -1,6 +1,6 @@
 component_context:
   block:
-    enabled: 1
+    enabled: 0
     data: |
       block.admin_menu_links:
         id: block.admin_menu_links
@@ -58,3 +58,1217 @@ component_context:
         id: block.views_block.editoria11y_results-block_top_results
         name: 'Editoria11y - Pages with the most alerts'
         description: 'Editoria11y - Pages with the most alerts'
+  sdc:
+    enabled: 1
+    data: |
+      sdc.mercury.accordion:
+        id: sdc.mercury.accordion
+        name: Accordion
+        description: 'A single section of content than can be collapsed and expanded.'
+        group: Layout
+        props:
+          title:
+            name: Heading
+            description: 'No description available'
+            type: string
+            default: 'Section title'
+          heading_level:
+            name: 'Heading level'
+            description: 'No description available'
+            type: number
+            default: 3.0
+            required: true
+            enum:
+              - 2
+              - 3
+              - 4
+              - 5
+              - 6
+          open_by_default:
+            name: 'Expanded by default'
+            description: 'No description available'
+            type: boolean
+            default: false
+        slots:
+          accordion_content:
+            name: 'Accordion content'
+            description: 'Content in this slot will be hidden when the accordion is collapsed.'
+      sdc.mercury.accordion-container:
+        id: sdc.mercury.accordion-container
+        name: 'Accordion container'
+        description: 'A container for any content, only one of whose accordions may be open at a time.'
+        group: Layout
+        props: 'No props'
+        slots:
+          accordion_content:
+            name: 'Accordion content'
+            description: 'Only one of collapsible sections added can be open at a time.'
+      sdc.mercury.anchor:
+        id: sdc.mercury.anchor
+        name: Anchor
+        description: 'An invisible element with an ID you can link to with a URL fragment (e.g. \#intro)'
+        group: Base
+        props:
+          id:
+            name: 'ID for in-page link'
+            description: 'String to use in the URL. Should begin with a letter and contain only lowercase letters, numerals, and hyphens.'
+            type: string
+            default: anchor-id
+            required: true
+        slots: 'No slots'
+      sdc.mercury.badge:
+        id: sdc.mercury.badge
+        name: Badge
+        description: Badge
+        group: Base
+        props:
+          label:
+            name: 'Link text'
+            description: 'No description available'
+            type: string
+            default: 'Badge text'
+            required: true
+          url:
+            name: Link
+            description: 'No description available'
+            type: string
+            default: null
+          style:
+            name: Style
+            description: 'No description available'
+            type: string
+            default: primary
+            required: true
+            enum:
+              - primary
+              - secondary
+          icon:
+            name: 'Icon name'
+            description: 'The ID of an icon from the <a href="https://phosphoricons.com/" target="_blank">Phosphor Icons</a> library.'
+            type: string
+            default: rocket
+          icon_first:
+            name: 'Icon first'
+            description: 'No description available'
+            type: boolean
+            default: true
+        slots: 'No slots'
+      sdc.mercury.blockquote:
+        id: sdc.mercury.blockquote
+        name: Blockquote
+        description: Blockquote
+        group: Base
+        props:
+          text:
+            name: 'Quotation text'
+            description: 'No description available'
+            type: string
+            default: '“To confine our attention to terrestrial matters would be to limit the human spirit.”'
+          cite_name:
+            name: 'Citation name'
+            description: 'No description available'
+            type: string
+            default: 'Isiah Julio'
+          cite_text:
+            name: 'Citation text'
+            description: 'No description available'
+            type: string
+            default: 'Engineer, Technical Services'
+          cite_url:
+            name: 'Citation link'
+            description: 'No description available'
+            type: string
+            default: null
+        slots: 'No slots'
+      sdc.mercury.button:
+        id: sdc.mercury.button
+        name: Button
+        description: Button
+        group: Base
+        props:
+          variant:
+            name: Style
+            description: 'No description available'
+            type: string
+            default: primary
+            required: true
+            enum:
+              - primary
+              - secondary
+              - primary-inverted
+              - secondary-inverted
+          label:
+            name: Label
+            description: 'No description available'
+            type: string
+            default: 'Button label'
+          href:
+            name: Link
+            description: 'No description available'
+            type: string
+            default: null
+          size:
+            name: 'Button size'
+            description: 'No description available'
+            type: string
+            default: medium
+            required: true
+            enum:
+              - small
+              - medium
+              - large
+          icon:
+            name: Icon
+            description: 'No description available'
+            type: string
+            default: arrow-right
+            enum:
+              - arrow-right
+              - arrow-left
+              - caret-right
+              - caret-left
+              - download
+              - user-plus
+          mobile_width:
+            name: 'Full width on mobile'
+            description: 'No description available'
+            type: boolean
+            default: false
+          icon_first:
+            name: 'Display icon first'
+            description: 'No description available'
+            type: boolean
+            default: false
+          disabled:
+            name: Disabled
+            description: 'No description available'
+            type: boolean
+            default: false
+        slots: 'No slots'
+      sdc.mercury.card:
+        id: sdc.mercury.card
+        name: 'Image card'
+        description: 'Image card'
+        group: Card
+        props:
+          background:
+            name: Background
+            description: 'No description available'
+            type: string
+            default: default
+            enum:
+              - default
+              - accent
+              - primary
+              - inverted
+          style:
+            name: Style
+            description: 'No description available'
+            type: string
+            default: framed
+            required: true
+            enum:
+              - framed
+              - full
+          orientation:
+            name: Orientation
+            description: 'No description available'
+            type: string
+            default: vertical
+            required: true
+            enum:
+              - vertical
+              - horizontal
+          heading_text:
+            name: Heading
+            description: 'No description available'
+            type: string
+            default: 'This is your card title'
+            required: true
+          level:
+            name: 'Heading level'
+            description: 'No description available'
+            type: number
+            default: 3.0
+            enum:
+              - 2
+              - 3
+              - 4
+          url:
+            name: Link
+            description: 'No description available'
+            type: string
+            default: null
+          media:
+            name: Image
+            description: 'No description available'
+            type: object
+            default:
+              src: /themes/contrib/mercury/components/card/assets/jj-ying-8bghKxNU1j0-unsplash.jpg
+              width: 1200
+              height: 900
+              alt: 'Photo by jjying: https://unsplash.com/photos/purple-and-blue-light-digital-wallpaper-8bghKxNU1j0'
+          text:
+            name: Description
+            description: 'No description available'
+            type: string
+            default: 'Quaerat laborum rerum dolores dolores dolor qui.'
+          is_text_centered:
+            name: 'Center text'
+            description: 'No description available'
+            type: boolean
+            default: false
+        slots: 'No slots'
+      sdc.mercury.card-icon:
+        id: sdc.mercury.card-icon
+        name: 'Icon card'
+        description: 'Icon card'
+        group: Card
+        props:
+          tile_size:
+            name: 'Aspect ratio'
+            description: 'No description available'
+            type: string
+            default: square
+            enum:
+              - square
+              - '4:3'
+              - '16:9'
+          background_color:
+            name: 'Background color'
+            description: 'No description available'
+            type: string
+            default: null
+            enum:
+              - primary
+              - secondary
+              - accent
+              - muted
+          border_radius:
+            name: 'Border radius'
+            description: 'No description available'
+            type: string
+            default: medium
+            enum:
+              - small
+              - medium
+              - large
+          icon:
+            name: 'Icon name'
+            description: 'The ID of an icon from the <a href="https://phosphoricons.com/" target="_blank">Phosphor Icons</a> library.'
+            type: string
+            default: rocket
+          icon_size:
+            name: 'Icon size'
+            description: 'No description available'
+            type: string
+            default: large
+            enum:
+              - small
+              - medium
+              - large
+              - extra-large
+          icon_align:
+            name: 'Icon alignment'
+            description: 'No description available'
+            type: string
+            default: center
+            required: true
+            enum:
+              - left
+              - right
+              - center
+          url:
+            name: Link
+            description: 'No description available'
+            type: string
+            default: null
+          text:
+            name: Heading
+            description: 'No description available'
+            type: string
+            default: 'Your heading here'
+          description:
+            name: Description
+            description: 'No description available'
+            type: string
+            default: '<p>This is placeholder text.</p>'
+          text_align:
+            name: 'Text alignment'
+            description: 'No description available'
+            type: string
+            default: center
+            required: true
+            enum:
+              - left
+              - center
+              - right
+        slots: 'No slots'
+      sdc.mercury.card-logo:
+        id: sdc.mercury.card-logo
+        name: 'Logo card'
+        description: 'A component with an image and optional background and link.'
+        group: Card
+        props:
+          media:
+            name: Logo
+            description: 'No description available'
+            type: object
+            default:
+              src: /themes/contrib/mercury/components/card-logo/assets/dark.png
+              alt: 'Placeholder brand logo'
+              width: 188
+              height: 113
+          background_color:
+            name: 'Background color'
+            description: 'No description available'
+            type: string
+            default: null
+            enum:
+              - primary
+              - secondary
+              - accent
+              - muted
+          border_radius:
+            name: 'Border radius'
+            description: 'No description available'
+            type: string
+            default: small
+            enum:
+              - small
+              - medium
+              - large
+          url:
+            name: Link
+            description: 'No description available'
+            type: string
+            default: null
+        slots: 'No slots'
+      sdc.mercury.card-pricing:
+        id: sdc.mercury.card-pricing
+        name: 'Pricing card'
+        description: 'Pricing card'
+        group: Card
+        props:
+          heading_text:
+            name: Heading
+            description: 'No description available'
+            type: string
+            default: Premium
+          description:
+            name: Description
+            description: 'No description available'
+            type: string
+            default: 'Curabitur nascetur non potenti pede luctus vivamus'
+          price:
+            name: Price
+            description: Price
+            type: string
+            default: '159'
+          currency_code:
+            name: 'Currency code'
+            description: 'No description available'
+            type: string
+            default: USD
+          currency_symbol:
+            name: 'Currency symbol'
+            description: 'No description available'
+            type: string
+            default: $
+          symbol_position:
+            name: 'Symbol position'
+            description: 'No description available'
+            type: string
+            default: before
+            required: true
+            enum:
+              - before
+              - after
+          text:
+            name: Text
+            description: 'No description available'
+            type: string
+            default: '<ul> <li>Example item 1</li> <li>Example item 2</li> </ul>'
+          button_url:
+            name: Link
+            description: 'No description available'
+            type: string
+            default: null
+          button_label:
+            name: 'Button label'
+            description: 'No description available'
+            type: string
+            default: 'Choose this plan'
+          promote:
+            name: 'Highlight card'
+            description: 'No description available'
+            type: boolean
+            default: false
+        slots: 'No slots'
+      sdc.mercury.card-testimonial:
+        id: sdc.mercury.card-testimonial
+        name: 'Testimonial card'
+        description: 'Testimonial card'
+        group: Card
+        props:
+          text:
+            name: 'Quote text'
+            description: 'No description available'
+            type: string
+            default: 'My career’s guidance was crucial in helping me understand the tech industry landscape and ultimately secure my role.'
+          cite_name:
+            name: 'Citation name'
+            description: 'No description available'
+            type: string
+            default: 'Isiah Julio'
+          cite_text:
+            name: 'Citation text'
+            description: 'No description available'
+            type: string
+            default: 'Engineer, Technical Services'
+          cite_url:
+            name: 'Citation link'
+            description: 'No description available'
+            type: string
+            default: null
+          align:
+            name: Alignment
+            description: 'No description available'
+            type: string
+            default: center
+            required: true
+            enum:
+              - center
+              - left
+          style:
+            name: Style
+            description: 'No description available'
+            type: string
+            default: default
+            required: true
+            enum:
+              - default
+              - inverted
+          media:
+            name: Image
+            description: 'No description available'
+            type: object
+            default:
+              src: /themes/contrib/mercury/components/card-testimonial/assets/portrait.png
+              alt: Placeholder
+              width: 100
+              height: 100
+        slots: 'No slots'
+      sdc.mercury.cta:
+        id: sdc.mercury.cta
+        name: 'Hero CTA'
+        description: 'A call to action with a heading, description and slot for buttons.'
+        group: Hero
+        props:
+          heading_text:
+            name: Heading
+            description: 'No description available'
+            type: string
+            default: 'Your heading goes here'
+          level:
+            name: 'Heading level'
+            description: 'No description available'
+            type: number
+            default: 2.0
+            required: true
+            enum:
+              - 1
+              - 2
+              - 3
+              - 4
+              - 5
+              - 6
+          text:
+            name: Text
+            description: 'No description available'
+            type: string
+            default: 'Lorem ipsum dolor sit amet.'
+          text_align:
+            name: 'Text alignment'
+            description: 'No description available'
+            type: string
+            default: center
+            required: true
+            enum:
+              - center
+              - left
+              - right
+          background_color:
+            name: 'Background color'
+            description: 'No description available'
+            type: string
+            default: null
+            enum:
+              - primary
+              - secondary
+              - accent
+              - muted
+              - inverted
+          media:
+            name: 'Background image'
+            description: 'No description available'
+            type: object
+            default: null
+        slots:
+          actions:
+            name: Buttons
+            description: 'No description available'
+      sdc.mercury.footer:
+        id: sdc.mercury.footer
+        name: Footer
+        description: Footer
+        group: Layout
+        props:
+          align:
+            name: 'Display links horizontally'
+            description: 'No description available'
+            type: boolean
+            default: true
+        slots:
+          footer_first:
+            name: 'Branding & Social'
+            description: 'No description available'
+          footer_last:
+            name: 'Call to action'
+            description: 'No description available'
+          footer_utility_first:
+            name: 'Utility links'
+            description: 'No description available'
+          footer_utility_last:
+            name: 'Copyright text'
+            description: 'No description available'
+      sdc.mercury.group:
+        id: sdc.mercury.group
+        name: Group
+        description: Group
+        group: Layout
+        props:
+          flex_direction:
+            name: 'Item direction'
+            description: 'No description available'
+            type: string
+            default: column
+            required: true
+            enum:
+              - column
+              - row
+          flex_gap:
+            name: 'Space between items'
+            description: 'No description available'
+            type: string
+            default: md
+            enum:
+              - sm
+              - md
+              - lg
+              - xl
+          items_align:
+            name: 'Alignment within group'
+            description: 'No description available'
+            type: string
+            default: start
+            required: true
+            enum:
+              - start
+              - center
+              - end
+          flex_align:
+            name: 'Alignment within parent'
+            description: 'No description available'
+            type: string
+            default: center
+            required: true
+            enum:
+              - start
+              - center
+              - end
+          radius:
+            name: 'Rounded corners'
+            description: 'No description available'
+            type: string
+            default: sm
+            enum:
+              - sm
+              - md
+              - lg
+              - xl
+          padding:
+            name: Padding
+            description: 'No description available'
+            type: string
+            default: sm
+            enum:
+              - sm
+              - md
+              - lg
+              - xl
+          background:
+            name: 'Background color'
+            description: 'No description available'
+            type: string
+            default: null
+            enum:
+              - primary
+              - secondary
+              - accent
+        slots:
+          group_slot:
+            name: 'Group items'
+            description: 'No description available'
+      sdc.mercury.heading:
+        id: sdc.mercury.heading
+        name: Heading
+        description: Heading
+        group: Base
+        props:
+          heading_text:
+            name: Heading
+            description: 'No description available'
+            type: string
+            default: 'Your heading goes here'
+            required: true
+          level:
+            name: 'Heading level'
+            description: 'No description available'
+            type: number
+            default: 2.0
+            required: true
+            enum:
+              - 1
+              - 2
+              - 3
+              - 4
+              - 5
+              - 6
+          text_size:
+            name: 'Text size'
+            description: 'No description available'
+            type: string
+            default: heading-responsive-4xl
+            required: true
+            enum:
+              - default
+              - heading-responsive-8xl
+              - heading-responsive-7xl
+              - heading-responsive-6xl
+              - heading-responsive-5xl
+              - heading-responsive-4xl
+              - heading-responsive-3xl
+              - heading-responsive-2xl
+              - heading-responsive-xl
+          text_color:
+            name: 'Text color'
+            description: 'No description available'
+            type: string
+            default: default
+            required: true
+            enum:
+              - default
+              - inverted
+              - primary
+          align:
+            name: 'Text alignment'
+            description: 'No description available'
+            type: string
+            default: left
+            required: true
+            enum:
+              - left
+              - center
+              - right
+          url:
+            name: Link
+            description: 'No description available'
+            type: string
+            default: null
+        slots: 'No slots'
+      sdc.mercury.hero-billboard:
+        id: sdc.mercury.hero-billboard
+        name: 'Hero billboard'
+        description: 'Hero billboard'
+        group: Hero
+        props:
+          height:
+            name: Height
+            description: 'No description available'
+            type: string
+            default: full
+            required: true
+            enum:
+              - full
+              - large
+              - ribbon
+          flex_position:
+            name: 'Content position'
+            description: 'No description available'
+            type: string
+            default: center-left
+            required: true
+            enum:
+              - top-left
+              - center-left
+              - bottom-left
+              - hero-center
+          overlay_opacity:
+            name: 'Overlay opacity'
+            description: 'No description available'
+            type: string
+            default: 0%
+            required: true
+            enum:
+              - 0%
+              - 20%
+              - 40%
+              - 60%
+              - 75%
+          object_position:
+            name: 'Background image position'
+            description: 'No description available'
+            type: string
+            default: center
+            required: true
+            enum:
+              - top
+              - center
+              - bottom
+          media:
+            name: 'Background image'
+            description: 'No description available'
+            type: object
+            default:
+              src: /themes/contrib/mercury/components/hero-billboard/assets/luke-chesser-pJadQetzTkI-unsplash.jpg
+              alt: 'Green blue gradient placeholder image'
+              width: 1920
+              height: 1344
+          overlap_navbar:
+            name: 'Overlap header'
+            description: 'Enable this to place it behind the header, if it is the first item on the page.'
+            type: boolean
+            default: false
+        slots:
+          hero_slot:
+            name: 'Hero content'
+            description: 'No description available'
+      sdc.mercury.hero-blog:
+        id: sdc.mercury.hero-blog
+        name: 'Hero blog'
+        description: 'Hero with side by side slots for media and content.'
+        group: Hero
+        props:
+          heading_text:
+            name: Heading
+            description: 'No description available'
+            type: string
+            default: 'Vivamus curae metus neque mollis orci ipsum sapien velit cursus'
+          level:
+            name: 'Heading level'
+            description: 'No description available'
+            type: integer
+            default: 1
+            enum:
+              - 1
+              - 2
+              - 3
+              - 4
+              - 5
+              - 6
+          date:
+            name: 'Published Date'
+            description: 'No description available'
+            type: integer
+            default: 1770856866
+          author:
+            name: Author
+            description: 'No description available'
+            type: string
+            default: 'John Smith'
+          author_url:
+            name: 'Author link'
+            description: 'No description available'
+            type: string
+            default: ''
+          media:
+            name: Image
+            description: 'No description available'
+            type: object
+            default:
+              src: /themes/contrib/mercury/components/hero-blog/assets/luke-chesser-pJadQetzTkI-unsplash.jpg
+              alt: 'Green blue gradient placeholder image'
+              width: 1920
+              height: 1344
+        slots:
+          blog_media:
+            name: 'Place Image'
+            description: 'No description available'
+      sdc.mercury.hero-side-by-side:
+        id: sdc.mercury.hero-side-by-side
+        name: 'Hero side-by-side'
+        description: 'Hero with side-by-side slots for media and content.'
+        group: Hero
+        props:
+          hero_flex_gap:
+            name: 'Flex gap'
+            description: 'No description available'
+            type: string
+            default: large
+            enum:
+              - large
+              - extra-large
+          hero_flex_direction_mobile:
+            name: 'Mobile flex direction'
+            description: 'No description available'
+            type: string
+            default: vertical
+            enum:
+              - vertical
+              - vertical-reverse
+          background:
+            name: 'Background color'
+            description: 'No description available'
+            type: string
+            default: null
+            enum:
+              - primary
+              - secondary
+              - accent
+          padding_block_start:
+            name: 'Padding top'
+            description: 'No description available'
+            type: string
+            default: '0'
+            required: true
+            enum:
+              - '0'
+              - '16'
+              - '32'
+              - '64'
+          padding_block_end:
+            name: 'Padding bottom'
+            description: 'No description available'
+            type: string
+            default: '0'
+            required: true
+            enum:
+              - '0'
+              - '16'
+              - '32'
+              - '64'
+          image_size:
+            name: 'Aspect ratio'
+            description: 'No description available'
+            type: string
+            default: '4:3'
+            enum:
+              - '2:1'
+              - '16:9'
+              - '3:2'
+              - '4:3'
+              - '1:1'
+          image_position:
+            name: 'Image position'
+            description: 'No description available'
+            type: string
+            default: left
+            enum:
+              - left
+              - right
+          image_radius:
+            name: 'Image border radius'
+            description: 'No description available'
+            type: string
+            default: small
+            enum:
+              - small
+              - large
+              - extra-large
+          media:
+            name: Image
+            description: 'No description available'
+            type: object
+            default:
+              src: /themes/contrib/mercury/components/hero-side-by-side/assets/luke-chesser-pJadQetzTkI-unsplash.jpg
+              alt: 'Green blue gradient placeholder image'
+              width: 1920
+              height: 1344
+        slots:
+          hero_slot:
+            name: Content
+            description: 'No description available'
+      sdc.mercury.icon:
+        id: sdc.mercury.icon
+        name: Icon
+        description: Icon
+        group: Base
+        props:
+          icon:
+            name: 'Icon name'
+            description: 'The ID of an icon from the <a href="https://phosphoricons.com" target="_blank">Phosphor Icons</a> library.'
+            type: string
+            default: rocket
+            required: true
+          icon_size:
+            name: 'Icon size'
+            description: 'No description available'
+            type: string
+            default: small
+            required: true
+            enum:
+              - extra-small
+              - small
+              - medium
+              - large
+              - extra-large
+        slots: 'No slots'
+      sdc.mercury.image:
+        id: sdc.mercury.image
+        name: Image
+        description: Image
+        group: Base
+        props:
+          media:
+            name: Image
+            description: 'No description available'
+            type: object
+            default:
+              src: /themes/contrib/mercury/components/image/assets/pexels-felix-mittermeier-1209650.jpg
+              alt: 'A purple, cloudy sky reflected on a calm lake'
+              width: 1920
+              height: 1014
+          size:
+            name: 'Aspect ratio'
+            description: 'No description available'
+            type: string
+            default: '4:3'
+            enum:
+              - '2:1'
+              - '16:9'
+              - '3:2'
+              - '4:3'
+              - '1:1'
+          radius:
+            name: 'Corner radius'
+            description: 'No description available'
+            type: string
+            default: small
+            enum:
+              - small
+              - large
+              - extra-large
+          caption:
+            name: Caption
+            description: 'No description available'
+            type: string
+            default: null
+          url:
+            name: Link
+            description: 'No description available'
+            type: string
+            default: null
+        slots: 'No slots'
+      sdc.mercury.navbar:
+        id: sdc.mercury.navbar
+        name: Navbar
+        description: Navbar
+        group: Layout
+        props:
+          menu_align:
+            name: 'Menu alignment'
+            description: 'No description available'
+            type: string
+            default: center
+            enum:
+              - left
+              - center
+              - right
+        slots:
+          logo:
+            name: 'Site logo'
+            description: 'No description available'
+          navigation:
+            name: 'Navigation menu'
+            description: 'No description available'
+          links:
+            name: CTAs
+            description: 'No description available'
+      sdc.mercury.section:
+        id: sdc.mercury.section
+        name: Section
+        description: Section
+        group: Layout
+        props:
+          width:
+            name: 'Section width'
+            description: 'No description available'
+            type: string
+            default: 100%
+            required: true
+            enum:
+              - 100%
+              - 90%
+              - 80%
+              - 75%
+              - 50%
+          columns:
+            name: 'Grid layout'
+            description: 'Layout selected applies on desktop and tablet.'
+            type: string
+            default: 50-50
+            required: true
+            enum:
+              - '100'
+              - 50-50
+              - 33-33-33
+              - 75-25
+              - 25-75
+              - 67-33
+              - 33-67
+              - 50-25-25
+              - 25-25-50
+              - 25-25-25-25
+          views_columns:
+            name: 'Views grid'
+            description: 'If you are using a view in this section, select the grid layout.'
+            type: string
+            default: null
+            enum:
+              - 50-50
+              - 33-33-33
+              - 25-25-25-25
+          mobile_columns:
+            name: 'Columns on mobile'
+            description: 'No description available'
+            type: string
+            default: '1'
+            required: true
+            enum:
+              - '1'
+              - '2'
+              - '3'
+          margin_block_start:
+            name: 'Margin top'
+            description: 'No description available'
+            type: string
+            default: '48'
+            required: true
+            enum:
+              - '0'
+              - '8'
+              - '20'
+              - '32'
+              - '48'
+              - '64'
+              - '96'
+              - '128'
+          margin_block_end:
+            name: 'Margin bottom'
+            description: 'No description available'
+            type: string
+            default: '48'
+            required: true
+            enum:
+              - '0'
+              - '8'
+              - '20'
+              - '32'
+              - '48'
+              - '64'
+              - '96'
+              - '128'
+          padding_block_start:
+            name: 'Padding top'
+            description: 'No description available'
+            type: string
+            default: '0'
+            required: true
+            enum:
+              - '0'
+              - '16'
+              - '32'
+              - '64'
+          padding_block_end:
+            name: 'Padding bottom'
+            description: 'No description available'
+            type: string
+            default: '0'
+            required: true
+            enum:
+              - '0'
+              - '16'
+              - '32'
+              - '64'
+          background_color:
+            name: 'Background color'
+            description: 'No description available'
+            type: string
+            default: null
+            enum:
+              - primary
+              - secondary
+              - accent
+              - muted
+          background_media:
+            name: 'Background image'
+            description: 'No description available'
+            type: object
+            default: null
+          section_header:
+            name: 'Show header region'
+            description: 'No description available'
+            type: boolean
+            default: true
+          section_footer:
+            name: 'Show footer region'
+            description: 'No description available'
+            type: boolean
+            default: true
+        slots:
+          header_slot:
+            name: Header
+            description: 'No description available'
+          main_slot:
+            name: Grid
+            description: 'No description available'
+          footer_slot:
+            name: Footer
+            description: 'No description available'
+      sdc.mercury.text:
+        id: sdc.mercury.text
+        name: Text
+        description: Text
+        group: Base
+        props:
+          text:
+            name: 'Rich text'
+            description: 'No description available'
+            type: string
+            default: '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Tristique pretium pellentesque semper enim aliquam.</p>'
+          text_size:
+            name: 'Text size'
+            description: 'No description available'
+            type: string
+            default: normal
+            required: true
+            enum:
+              - text-xs
+              - text-sm
+              - normal
+              - text-lg
+              - text-xl
+              - text-2xl
+              - text-3xl
+          text_color:
+            name: 'Text color'
+            description: 'No description available'
+            type: string
+            default: default
+            required: true
+            enum:
+              - default
+              - inverted
+              - primary
+        slots: 'No slots'

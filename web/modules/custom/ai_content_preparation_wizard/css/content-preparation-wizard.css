@@ -241,22 +241,41 @@
 }
 
 .content-preparation-wizard .plan-sections-list details summary {
-  padding: 0.75rem 1rem 0.75rem 1.75rem;
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
   background-color: #f8f9fa;
   cursor: pointer;
   font-weight: 500;
   font-size: 0.875rem;
   transition: background-color 0.2s ease;
-  list-style-position: outside;
+  position: relative;
+  list-style: none;
+}
+
+/* Hide default marker */
+.content-preparation-wizard .plan-sections-list details summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Custom caret using pseudo-element */
+.content-preparation-wizard .plan-sections-list details summary::before {
+  content: '\25B6';
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.625rem;
+  color: #6c757d;
+  transition: transform 0.2s ease;
+}
+
+.content-preparation-wizard .plan-sections-list details[open] summary::before {
+  transform: translateY(-50%) rotate(90deg);
 }
 
 .content-preparation-wizard .plan-sections-list details summary:hover {
   background-color: #e9ecef;
 }
 
-.content-preparation-wizard .plan-sections-list details summary::marker {
-  color: #6c757d;
-}
 
 .content-preparation-wizard .plan-sections-list details[open] summary {
   border-bottom: 1px solid #dee2e6;
@@ -266,6 +285,32 @@
   padding: 0.75rem 1rem;
   font-size: 0.875rem;
   color: #495057;
+}
+
+/* Section content expand/collapse */
+.content-preparation-wizard .section-content-wrapper {
+  line-height: 1.6;
+}
+
+.content-preparation-wizard .section-preview,
+.content-preparation-wizard .section-full {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.content-preparation-wizard .section-read-more {
+  display: inline-block;
+  margin-top: 0.5rem;
+  color: #0d6efd;
+  font-weight: 500;
+  font-size: 0.8125rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.content-preparation-wizard .section-read-more:hover {
+  color: #0a58ca;
+  text-decoration: underline;
 }
 
 /* Refinement section */
@@ -359,6 +404,48 @@
   padding: 1.5rem;
 }
 
+/* Step 3 fieldsets */
+.content-preparation-wizard fieldset {
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  background-color: #fff;
+}
+
+.content-preparation-wizard fieldset legend {
+  padding: 0 0.5rem;
+  font-weight: 600;
+  font-size: 1rem;
+  color: #212529;
+}
+
+.content-preparation-wizard fieldset h3 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  color: #0d6efd;
+  font-size: 1.25rem;
+}
+
+.content-preparation-wizard fieldset > p {
+  margin-bottom: 0.5rem;
+  color: #495057;
+}
+
+/* Ensure wizard step bar is always visible (fixes Drupal admin theme overrides) */
+#wizard-form-wrapper .wizard-steps,
+.content-preparation-wizard .wizard-steps {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+#wizard-form-wrapper .wizard-step,
+.content-preparation-wizard .wizard-step {
+  display: flex !important;
+  visibility: visible !important;
+}
+
 /* ==========================================================================
    Scrollbar Styling
    ========================================================================== */
@@ -440,4 +527,47 @@
   border-color: #86b7fe;
   outline: 0;
   box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* ==========================================================================
+   AJAX Loading State - Spinner on Buttons
+   ========================================================================== */
+
+/* Button wrapper for spinner positioning */
+.content-preparation-wizard .wizard-button-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+/* Hidden spinner element */
+.content-preparation-wizard .wizard-button-spinner {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: wizard-button-spinner 0.6s linear infinite;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* When loading, show spinner and hide button text */
+.content-preparation-wizard .wizard-button-wrapper.is-loading input[type="submit"] {
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.content-preparation-wizard .wizard-button-wrapper.is-loading .wizard-button-spinner {
+  display: block;
+}
+
+@keyframes wizard-button-spinner {
+  to {
+    transform: rotate(360deg);
+  }
 }

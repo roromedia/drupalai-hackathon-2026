@@ -293,15 +293,39 @@ final class ContentPreparationWizardForm extends FormBase {
         ],
       ];
 
-      // Display sections.
+      // Display sections (skip empty ones).
       $sections = [];
-      foreach ($plan->sections as $section) {
+      foreach ($plan->sections as $index => $section) {
+        // Skip sections with empty content.
+        $content = trim($section->content ?? '');
+        if (empty($content)) {
+          continue;
+        }
+
+        $contentLength = mb_strlen($content);
+        $previewLength = 300;
+        $needsReadMore = $contentLength > $previewLength;
+
+        $preview = $needsReadMore
+          ? mb_substr($content, 0, $previewLength) . '...'
+          : $content;
+
+        $contentMarkup = '<div class="section-content-wrapper">';
+        $contentMarkup .= '<div class="section-preview">' . htmlspecialchars($preview, ENT_QUOTES, 'UTF-8') . '</div>';
+
+        if ($needsReadMore) {
+          $contentMarkup .= '<div class="section-full" style="display:none;">' . htmlspecialchars($content, ENT_QUOTES, 'UTF-8') . '</div>';
+          $contentMarkup .= '<a href="#" class="section-read-more" data-section="' . $index . '">' . $this->t('Read more...') . '</a>';
+        }
+
+        $contentMarkup .= '</div>';
+
         $sections[] = [
           '#type' => 'details',
           '#title' => $section->title . ' (' . $section->componentType . ')',
           '#open' => FALSE,
           'content' => [
-            '#markup' => '<p>' . substr($section->content, 0, 300) . '...</p>',
+            '#markup' => $contentMarkup,
           ],
         ];
       }
@@ -461,6 +485,7 @@ final class ContentPreparationWizardForm extends FormBase {
 
     $form['actions']['submit'] = [
       '#type' => 'submit',
+      '#name' => 'op',
       '#value' => $this->t('Create Canvas Page Now'),
       '#button_type' => 'primary',
     ];

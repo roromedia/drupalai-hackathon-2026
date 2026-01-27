@@ -69,6 +69,16 @@ class Step3CreateForm extends FormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state): array {
+    // Attach library for styling.
+    $form['#attached']['library'][] = 'ai_content_preparation_wizard/wizard';
+
+    // Build form wrapper with main container class.
+    $form['#prefix'] = '<div id="wizard-form-wrapper" class="content-preparation-wizard">';
+    $form['#suffix'] = '</div>';
+
+    // Build step indicator showing step 3 as active.
+    $form['step_indicator'] = $this->buildStepIndicator(3);
+
     $session = $this->sessionManager->getSession();
 
     if ($session === NULL) {
@@ -90,22 +100,66 @@ class Step3CreateForm extends FormBase {
       ]));
     }
 
+    // Content wrapper for step 3.
+    $form['step3'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['wizard-step-content']],
+    ];
+
     // Build the preview section.
-    $form['preview'] = $this->buildPreviewSection($plan);
+    $form['step3']['preview'] = $this->buildPreviewSection($plan);
 
     // Build the configuration section.
-    $form['configuration'] = $this->buildConfigurationSection($plan);
+    $form['step3']['configuration'] = $this->buildConfigurationSection($plan);
 
     // Build the component mapping visualization.
-    $form['component_mapping'] = $this->buildComponentMappingSection($plan);
+    $form['step3']['component_mapping'] = $this->buildComponentMappingSection($plan);
 
     // Build the actions section.
     $form['actions'] = $this->buildActionsSection($plan);
 
-    // Attach library for styling.
-    $form['#attached']['library'][] = 'ai_content_preparation_wizard/wizard';
-
     return $form;
+  }
+
+  /**
+   * Builds the step indicator.
+   *
+   * @param int $currentStep
+   *   The current step number.
+   *
+   * @return array
+   *   The step indicator render array.
+   */
+  protected function buildStepIndicator(int $currentStep): array {
+    $steps = [
+      1 => $this->t('Upload Documents'),
+      2 => $this->t('Review Plan'),
+      3 => $this->t('Create Page'),
+    ];
+
+    $items = [];
+    foreach ($steps as $stepNum => $label) {
+      $class = ['wizard-step'];
+      if ($stepNum < $currentStep) {
+        $class[] = 'completed';
+      }
+      elseif ($stepNum === $currentStep) {
+        $class[] = 'active';
+      }
+
+      $items[] = [
+        '#type' => 'html_tag',
+        '#tag' => 'div',
+        '#attributes' => ['class' => $class],
+        '#value' => '<span class="step-number">' . $stepNum . '</span> <span class="step-label">' . $label . '</span>',
+      ];
+    }
+
+    return [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['wizard-steps']],
+      'steps' => $items,
+    ];
   }
 
   /**
@@ -515,11 +569,20 @@ class Step3CreateForm extends FormBase {
    *   The modified form array.
    */
   protected function buildNoSessionForm(array $form): array {
-    $form['message'] = [
-      '#markup' => $this->t('Please start the wizard from the beginning.'),
+    $form['step3'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['wizard-step-content']],
     ];
 
-    $form['start'] = [
+    $form['step3']['message'] = [
+      '#markup' => '<p>' . $this->t('Please start the wizard from the beginning.') . '</p>',
+    ];
+
+    $form['actions'] = [
+      '#type' => 'actions',
+    ];
+
+    $form['actions']['start'] = [
       '#type' => 'link',
       '#title' => $this->t('Start Wizard'),
       '#url' => Url::fromRoute('ai_content_preparation_wizard.wizard'),
@@ -541,11 +604,20 @@ class Step3CreateForm extends FormBase {
    *   The modified form array.
    */
   protected function buildNoPlanForm(array $form): array {
-    $form['message'] = [
-      '#markup' => $this->t('Please complete the content plan step first.'),
+    $form['step3'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['wizard-step-content']],
     ];
 
-    $form['back'] = [
+    $form['step3']['message'] = [
+      '#markup' => '<p>' . $this->t('Please complete the content plan step first.') . '</p>',
+    ];
+
+    $form['actions'] = [
+      '#type' => 'actions',
+    ];
+
+    $form['actions']['back'] = [
       '#type' => 'link',
       '#title' => $this->t('Go to Plan Step'),
       '#url' => Url::fromRoute('ai_content_preparation_wizard.wizard.step', ['step' => 'plan']),
