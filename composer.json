@@ -20,9 +20,11 @@
         "composer/installers": "^2.3",
         "cweagans/composer-patches": "^2.0",
         "drupal/ai": "^1.2.6",
+        "drupal/ai_context": "^0.1.0@alpha",
         "drupal/ai_provider_amazeeio": "1.2.x-dev",
         "drupal/byte": "^1@beta",
         "drupal/byte_theme": "@beta",
+        "drupal/canvas": "^1.0",
         "drupal/config_ignore": "^3.3",
         "drupal/core": "^11.3",
         "drupal/core-composer-scaffold": "^11.3",
@@ -109,8 +111,10 @@
             },
             "drupal/canvas": {
                 "#3568950: Let the agent know that the tools were succesful": "https://git.drupalcode.org/project/canvas/-/merge_requests/493.patch",
-                "Allow private file scheme and fix UriSchemeConstraintValidator for File entities": "patches/canvas-allow-private-file-uploads.patch"
+                "Allow private file scheme and fix UriSchemeConstraintValidator for File entities": "patches/canvas-allow-private-file-uploads.patch",
+                "https://www.drupal.org/project/canvas/issues/3556590": "https://git.drupalcode.org/project/canvas/-/merge_requests/444.patch"
             }
+
         }
     },
     "scripts": {
