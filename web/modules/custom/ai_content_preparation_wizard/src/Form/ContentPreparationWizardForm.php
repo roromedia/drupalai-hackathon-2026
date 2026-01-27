@@ -70,9 +70,6 @@ final class ContentPreparationWizardForm extends FormBase {
     // Enable form tree for proper nested value handling.
     $form['#tree'] = FALSE;
 
-    // Ensure form caching for multi-step.
-    $form_state->setCached(TRUE);
-
     // Disable autosave for this form as it can interfere with multi-step.
     $form['#autosave_form_disabled'] = TRUE;
 
