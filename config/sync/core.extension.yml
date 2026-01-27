@@ -36,6 +36,7 @@ module:
   config: 0
   config_ignore: 0
   content_moderation: 0
+  content_preparation_wizard: 0
   contextual: 0
   crop: 0
   ctools: 0

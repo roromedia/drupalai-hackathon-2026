@@ -1,0 +1,60 @@
+component_context:
+  block:
+    enabled: 1
+    data: |
+      block.admin_menu_links:
+        id: block.admin_menu_links
+        name: 'Admin Menu Links'
+        description: 'Admin Menu Links'
+      block.ai_operations_status:
+        id: block.ai_operations_status
+        name: 'AI Operations Status'
+        description: 'AI Operations Status'
+      block.ai_setup_ai_provider:
+        id: block.ai_setup_ai_provider
+        name: 'Setup AI Provider'
+        description: 'Setup AI Provider'
+      block.events_block:
+        id: block.events_block
+        name: 'Events Feed'
+        description: 'Events Feed'
+      block.system_branding_block:
+        id: block.system_branding_block
+        name: 'Site branding'
+        description: 'Site branding'
+      block.system_breadcrumb_block:
+        id: block.system_breadcrumb_block
+        name: Breadcrumbs
+        description: Breadcrumbs
+      block.system_menu_block.footer:
+        id: block.system_menu_block.footer
+        name: Footer
+        description: Footer
+      block.system_menu_block.main:
+        id: block.system_menu_block.main
+        name: 'Main navigation'
+        description: 'Main navigation'
+      block.system_powered_by_block:
+        id: block.system_powered_by_block
+        name: 'Powered by Drupal'
+        description: 'Powered by Drupal'
+      block.views_block.a11y_tools_editoria11y_results-block_a11y_alerts:
+        id: block.views_block.a11y_tools_editoria11y_results-block_a11y_alerts
+        name: 'A11y Tools - Pages with accessibility alerts'
+        description: 'A11y Tools - Pages with accessibility alerts'
+      block.views_block.editoria11y_dismissals-recent_dismissals:
+        id: block.views_block.editoria11y_dismissals-recent_dismissals
+        name: 'Editoria11y - Recent dismissals'
+        description: 'Editoria11y - Recent dismissals'
+      block.views_block.editoria11y_results-block_recent_issues:
+        id: block.views_block.editoria11y_results-block_recent_issues
+        name: 'Editoria11y - Recent alerts'
+        description: 'Editoria11y - Recent alerts'
+      block.views_block.editoria11y_results-block_top_issues:
+        id: block.views_block.editoria11y_results-block_top_issues
+        name: 'Editoria11y - Most frequent alerts'
+        description: 'Editoria11y - Most frequent alerts'
+      block.views_block.editoria11y_results-block_top_results:
+        id: block.views_block.editoria11y_results-block_top_results
+        name: 'Editoria11y - Pages with the most alerts'
+        description: 'Editoria11y - Pages with the most alerts'
