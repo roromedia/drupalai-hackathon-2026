@@ -113,6 +113,9 @@
                 "#3568950: Let the agent know that the tools were succesful": "https://git.drupalcode.org/project/canvas/-/merge_requests/493.patch",
                 "Allow private file scheme and fix UriSchemeConstraintValidator for File entities": "patches/canvas-allow-private-file-uploads.patch",
                 "https://www.drupal.org/project/canvas/issues/3556590": "https://git.drupalcode.org/project/canvas/-/merge_requests/444.patch"
+            },
+            "drupal/canvas_ai": {
+                "Introduce AI Agents and tools to create entire page templates using available component entities": "patches/canvas-ai-template-builder.patch"
             }
 
         }
