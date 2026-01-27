@@ -130,6 +130,16 @@ final class DocumentMetadata {
   }
 
   /**
+   * Creates an empty DocumentMetadata instance.
+   *
+   * @return self
+   *   An empty DocumentMetadata instance.
+   */
+  public static function empty(): self {
+    return new self();
+  }
+
+  /**
    * Creates a DocumentMetadata instance from an array.
    *
    * @param array<string, mixed> $data

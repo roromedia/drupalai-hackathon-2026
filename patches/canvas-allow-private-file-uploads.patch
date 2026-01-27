@@ -1,0 +1,32 @@
+diff --git a/src/Plugin/Field/FieldTypeOverride/FileUriItemOverride.php b/src/Plugin/Field/FieldTypeOverride/FileUriItemOverride.php
+--- a/src/Plugin/Field/FieldTypeOverride/FileUriItemOverride.php
++++ b/src/Plugin/Field/FieldTypeOverride/FileUriItemOverride.php
+@@ -30,7 +30,7 @@ class FileUriItemOverride extends FileUriItem {
+       // @todo should respect the `uri_scheme` field storage setting of \Drupal\file\Plugin\Field\FieldType\FileItem
+       // @see \Drupal\file\Plugin\Field\FieldType\FileItem::defaultStorageSettings()
+       ->addConstraint(UriConstraint::PLUGIN_ID, ['allowReferences' => FALSE])
+-      ->addConstraint(UriSchemeConstraint::PLUGIN_ID, ['public']);
++      ->addConstraint(UriSchemeConstraint::PLUGIN_ID, ['public', 'private']);
+     $properties['url']
+       ->setClass(ComputedFileUrlOverride::class)
+       // The `url` property is computed using the `value` property, which is
+diff --git a/src/Plugin/Validation/Constraint/UriSchemeConstraintValidator.php b/src/Plugin/Validation/Constraint/UriSchemeConstraintValidator.php
+--- a/src/Plugin/Validation/Constraint/UriSchemeConstraintValidator.php
++++ b/src/Plugin/Validation/Constraint/UriSchemeConstraintValidator.php
+@@ -21,6 +21,16 @@ final class UriSchemeConstraintValidator extends ConstraintValidator {
+       return;
+     }
+
++    // Handle File entities by extracting the URI.
++    if ($value instanceof \Drupal\file\FileInterface) {
++      $value = $value->getFileUri();
++    }
++
++    // Ensure we have a string to parse.
++    if (!is_string($value)) {
++      return;
++    }
++
+     // If an absolute URL was given, also validate the scheme.
+     $scheme = parse_url($value, PHP_URL_SCHEME);
+     if (!is_null($scheme) && !in_array($scheme, $constraint->allowedSchemes, TRUE)) {

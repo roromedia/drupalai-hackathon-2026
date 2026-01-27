@@ -245,8 +245,8 @@ class ContentPlanGenerator implements ContentPlanGeneratorInterface {
   /**
    * Builds combined content from all AI contexts.
    *
-   * @param array<\Drupal\ai_content_preparation_wizard\Model\AIContext> $contexts
-   *   The AI contexts.
+   * @param array<\Drupal\ai_content_preparation_wizard\Model\AIContext|string> $contexts
+   *   The AI contexts. Can be either AIContext objects or string context IDs.
    *
    * @return string
    *   The combined context content.
@@ -256,7 +256,72 @@ class ContentPlanGenerator implements ContentPlanGeneratorInterface {
       return '';
     }
 
-    return AIContext::combineForPrompt($contexts, TRUE);
+    // Convert string context IDs to AIContext objects.
+    $aiContexts = [];
+    foreach ($contexts as $context) {
+      if ($context instanceof AIContext) {
+        $aiContexts[] = $context;
+      }
+      elseif (is_string($context) && !empty($context)) {
+        // Create AIContext from string ID with descriptive content.
+        $aiContexts[] = $this->createContextFromId($context);
+      }
+    }
+
+    if (empty($aiContexts)) {
+      return '';
+    }
+
+    return AIContext::combineForPrompt($aiContexts, TRUE);
+  }
+
+  /**
+   * Creates an AIContext object from a context ID string.
+   *
+   * @param string $contextId
+   *   The context ID (e.g., 'site_structure', 'brand_guidelines').
+   *
+   * @return \Drupal\ai_content_preparation_wizard\Model\AIContext
+   *   The created AIContext object.
+   */
+  protected function createContextFromId(string $contextId): AIContext {
+    // Define context details for known context types.
+    $contextDefinitions = [
+      'site_structure' => [
+        'label' => 'Site Structure',
+        'content' => 'Consider the overall site structure and navigation hierarchy when organizing content. Ensure the content fits naturally within the site architecture.',
+        'priority' => 80,
+      ],
+      'brand_guidelines' => [
+        'label' => 'Brand Guidelines',
+        'content' => 'Follow brand voice and tone guidelines. Maintain consistency with the organization\'s communication style and visual identity.',
+        'priority' => 90,
+      ],
+      'seo_requirements' => [
+        'label' => 'SEO Requirements',
+        'content' => 'Optimize content for search engines. Include relevant keywords naturally, use proper heading hierarchy, and create descriptive meta content.',
+        'priority' => 70,
+      ],
+      'accessibility_standards' => [
+        'label' => 'Accessibility Standards',
+        'content' => 'Ensure content meets WCAG accessibility guidelines. Use clear language, proper semantic structure, and consider assistive technology users.',
+        'priority' => 85,
+      ],
+    ];
+
+    // Get definition or create a generic one.
+    $definition = $contextDefinitions[$contextId] ?? [
+      'label' => ucwords(str_replace('_', ' ', $contextId)),
+      'content' => sprintf('Apply %s considerations when generating content.', str_replace('_', ' ', $contextId)),
+      'priority' => 50,
+    ];
+
+    return AIContext::create(
+      type: $contextId,
+      label: $definition['label'],
+      content: $definition['content'],
+      priority: $definition['priority'],
+    );
   }
 
   /**

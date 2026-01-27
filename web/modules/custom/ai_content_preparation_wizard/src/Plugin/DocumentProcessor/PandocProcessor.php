@@ -8,6 +8,8 @@ use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\ai_content_preparation_wizard\Attribute\DocumentProcessor;
+use Drupal\ai_content_preparation_wizard\Enum\FileType;
+use Drupal\ai_content_preparation_wizard\Enum\ProcessingProvider;
 use Drupal\ai_content_preparation_wizard\Exception\DocumentProcessingException;
 use Drupal\ai_content_preparation_wizard\Model\DocumentMetadata;
 use Drupal\ai_content_preparation_wizard\Model\ProcessedDocument;
@@ -170,18 +172,23 @@ class PandocProcessor extends DocumentProcessorBase {
       // Convert document to markdown.
       $markdownContent = $this->pandocConverter->convertToMarkdown($realPath, $format);
 
+      // Save markdown to log file for debugging.
+      $this->saveMarkdownLog($file, $markdownContent);
+
       // Extract metadata.
       $metadata = $this->extractMetadata($file);
 
+      // Determine file type from extension.
+      $fileType = FileType::fromExtension($extension) ?? FileType::TXT;
+
       // Create the processed document.
-      return new ProcessedDocument(
-        id: \Drupal::service('uuid')->generate(),
-        originalFilename: $file->getFilename(),
-        content: $markdownContent,
-        processorId: $this->getPluginId(),
-        metadata: $metadata->toArray(),
-        processedAt: (int) \Drupal::time()->getRequestTime(),
+      return ProcessedDocument::create(
         fileId: (int) $file->id(),
+        fileName: $file->getFilename(),
+        fileType: $fileType,
+        markdownContent: $markdownContent,
+        metadata: $metadata,
+        provider: ProcessingProvider::PANDOC,
       );
     }
     catch (DocumentProcessingException $e) {
@@ -229,6 +236,58 @@ class PandocProcessor extends DocumentProcessorBase {
         '@error' => $e->getMessage(),
       ]);
       return DocumentMetadata::empty();
+    }
+  }
+
+  /**
+   * Saves the generated markdown content to a log file.
+   *
+   * @param \Drupal\file\FileInterface $file
+   *   The original file being processed.
+   * @param string $markdownContent
+   *   The generated markdown content.
+   */
+  protected function saveMarkdownLog(FileInterface $file, string $markdownContent): void {
+    $logDir = 'private://ai_content_preparation_wizard/logs';
+
+    // Ensure the log directory exists.
+    if (!$this->fileSystem->prepareDirectory($logDir, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS)) {
+      $this->logWarning('Could not create log directory: @dir', $file, [
+        '@dir' => $logDir,
+      ]);
+      return;
+    }
+
+    // Generate log filename with timestamp.
+    $originalName = pathinfo($file->getFilename(), PATHINFO_FILENAME);
+    $timestamp = date('Y-m-d_H-i-s');
+    $logFilename = sprintf('%s/%s_%s.md', $logDir, $originalName, $timestamp);
+
+    // Build log content with metadata header.
+    $logContent = sprintf(
+      "# Pandoc Conversion Log\n\n" .
+      "- **Source file:** %s\n" .
+      "- **File ID:** %s\n" .
+      "- **Processed at:** %s\n" .
+      "- **Processor:** %s\n\n" .
+      "---\n\n%s",
+      $file->getFilename(),
+      $file->id(),
+      date('Y-m-d H:i:s'),
+      $this->getPluginId(),
+      $markdownContent
+    );
+
+    try {
+      $this->fileSystem->saveData($logContent, $logFilename, FileSystemInterface::EXISTS_RENAME);
+      $this->logInfo('Saved markdown log to @path', $file, [
+        '@path' => $logFilename,
+      ]);
+    }
+    catch (\Exception $e) {
+      $this->logWarning('Failed to save markdown log: @error', $file, [
+        '@error' => $e->getMessage(),
+      ]);
     }
   }
 

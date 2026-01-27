@@ -14,6 +14,7 @@ enum ProcessingProvider: string {
   case SMALOT_PDF = 'smalot_pdf';
   case PHPWORD = 'phpword';
   case AI_VISION = 'ai_vision';
+  case PDFTOTEXT = 'pdftotext';
   case CUSTOM = 'custom';
 
   /**
@@ -26,6 +27,7 @@ enum ProcessingProvider: string {
       self::SMALOT_PDF => 'Smalot PDF Parser',
       self::PHPWORD => 'PHPWord',
       self::AI_VISION => 'AI Vision OCR',
+      self::PDFTOTEXT => 'pdftotext (Poppler)',
       self::CUSTOM => 'Custom Processor',
     };
   }
@@ -40,6 +42,7 @@ enum ProcessingProvider: string {
       self::SMALOT_PDF => 'PHP library for PDF text extraction',
       self::PHPWORD => 'PHP library for Word document processing',
       self::AI_VISION => 'AI-powered OCR for scanned documents',
+      self::PDFTOTEXT => 'Poppler pdftotext CLI tool for PDF text extraction',
       self::CUSTOM => 'Custom implementation provided by a plugin',
     };
   }
@@ -54,6 +57,7 @@ enum ProcessingProvider: string {
       self::SMALOT_PDF => FALSE,
       self::PHPWORD => FALSE,
       self::AI_VISION => TRUE,
+      self::PDFTOTEXT => TRUE,
       self::CUSTOM => FALSE,
     };
   }

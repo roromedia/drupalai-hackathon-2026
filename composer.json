@@ -108,7 +108,8 @@
                 "#3564735: Synthetic service (kernel) error during non-interactive install from existing config in Drupal 11.3": "https://git.drupalcode.org/project/drupal/-/merge_requests/14169.patch"
             },
             "drupal/canvas": {
-                "#3568950: Let the agent know that the tools were succesful": "https://git.drupalcode.org/project/canvas/-/merge_requests/493.patch"
+                "#3568950: Let the agent know that the tools were succesful": "https://git.drupalcode.org/project/canvas/-/merge_requests/493.patch",
+                "Allow private file scheme and fix UriSchemeConstraintValidator for File entities": "patches/canvas-allow-private-file-uploads.patch"
             }
         }
     },

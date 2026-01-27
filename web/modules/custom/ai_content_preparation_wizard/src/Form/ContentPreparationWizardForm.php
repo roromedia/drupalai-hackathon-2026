@@ -221,36 +221,36 @@ final class ContentPreparationWizardForm extends FormBase {
       $form['step2']['plan_preview']['title'] = [
         '#type' => 'textfield',
         '#title' => $this->t('Page Title'),
-        '#default_value' => $plan->getTitle(),
+        '#default_value' => $plan->title,
         '#required' => TRUE,
       ];
 
       $form['step2']['plan_preview']['summary'] = [
         '#type' => 'item',
         '#title' => $this->t('Summary'),
-        '#markup' => '<p>' . $plan->getSummary() . '</p>',
+        '#markup' => '<p>' . $plan->summary . '</p>',
       ];
 
       $form['step2']['plan_preview']['metadata'] = [
         '#type' => 'container',
         '#attributes' => ['class' => ['plan-metadata']],
         'audience' => [
-          '#markup' => '<div><strong>' . $this->t('Target Audience:') . '</strong> ' . $plan->getTargetAudience() . '</div>',
+          '#markup' => '<div><strong>' . $this->t('Target Audience:') . '</strong> ' . $plan->targetAudience . '</div>',
         ],
         'read_time' => [
-          '#markup' => '<div><strong>' . $this->t('Estimated Read Time:') . '</strong> ' . $plan->getEstimatedReadTime() . ' ' . $this->t('minutes') . '</div>',
+          '#markup' => '<div><strong>' . $this->t('Estimated Read Time:') . '</strong> ' . $plan->estimatedReadTime . ' ' . $this->t('minutes') . '</div>',
         ],
       ];
 
       // Display sections.
       $sections = [];
-      foreach ($plan->getSections() as $section) {
+      foreach ($plan->sections as $section) {
         $sections[] = [
           '#type' => 'details',
-          '#title' => $section->getTitle() . ' (' . $section->getComponentType() . ')',
+          '#title' => $section->title . ' (' . $section->componentType . ')',
           '#open' => FALSE,
           'content' => [
-            '#markup' => '<p>' . substr($section->getContent(), 0, 300) . '...</p>',
+            '#markup' => '<p>' . substr($section->content, 0, 300) . '...</p>',
           ],
         ];
       }
@@ -331,15 +331,15 @@ final class ContentPreparationWizardForm extends FormBase {
       ];
 
       $form['step3']['preview']['title'] = [
-        '#markup' => '<h3>' . $plan->getTitle() . '</h3>',
+        '#markup' => '<h3>' . $plan->title . '</h3>',
       ];
 
       $form['step3']['preview']['summary'] = [
-        '#markup' => '<p><em>' . $plan->getSummary() . '</em></p>',
+        '#markup' => '<p><em>' . $plan->summary . '</em></p>',
       ];
 
       $form['step3']['preview']['sections_count'] = [
-        '#markup' => '<p>' . $this->t('@count sections will be created.', ['@count' => count($plan->getSections())]) . '</p>',
+        '#markup' => '<p>' . $this->t('@count sections will be created.', ['@count' => count($plan->sections)]) . '</p>',
       ];
 
       $form['step3']['page_settings'] = [
@@ -350,7 +350,7 @@ final class ContentPreparationWizardForm extends FormBase {
       $form['step3']['page_settings']['page_title'] = [
         '#type' => 'textfield',
         '#title' => $this->t('Page Title'),
-        '#default_value' => $plan->getTitle(),
+        '#default_value' => $plan->title,
         '#required' => TRUE,
       ];
 
@@ -479,7 +479,7 @@ final class ContentPreparationWizardForm extends FormBase {
       if ($plan) {
         // Update title if changed.
         $newTitle = $form_state->getValue('title');
-        if ($newTitle && $newTitle !== $plan->getTitle()) {
+        if ($newTitle && $newTitle !== $plan->title) {
           $plan = $plan->withTitle($newTitle);
           $session->setContentPlan($plan);
           $this->sessionManager->updateSession($session);
@@ -580,7 +580,7 @@ final class ContentPreparationWizardForm extends FormBase {
 
     try {
       $options = [
-        'title' => $form_state->getValue('page_title') ?? $plan->getTitle(),
+        'title' => $form_state->getValue('page_title') ?? $plan->title,
         'alias' => $form_state->getValue('url_alias') ?: NULL,
         'status' => (bool) $form_state->getValue('status'),
       ];

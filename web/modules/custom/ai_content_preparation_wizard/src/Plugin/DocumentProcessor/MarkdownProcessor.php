@@ -6,6 +6,8 @@ namespace Drupal\ai_content_preparation_wizard\Plugin\DocumentProcessor;
 
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\ai_content_preparation_wizard\Attribute\DocumentProcessor;
+use Drupal\ai_content_preparation_wizard\Enum\FileType;
+use Drupal\ai_content_preparation_wizard\Enum\ProcessingProvider;
 use Drupal\ai_content_preparation_wizard\Exception\DocumentProcessingException;
 use Drupal\ai_content_preparation_wizard\Model\DocumentMetadata;
 use Drupal\ai_content_preparation_wizard\Model\ProcessedDocument;
@@ -106,14 +108,13 @@ class MarkdownProcessor extends DocumentProcessorBase {
       $bodyContent = $this->stripFrontmatter($content);
 
       // Create the processed document with the body content (no frontmatter).
-      return new ProcessedDocument(
-        id: \Drupal::service('uuid')->generate(),
-        originalFilename: $file->getFilename(),
-        content: $bodyContent,
-        processorId: $this->getPluginId(),
-        metadata: $metadata->toArray(),
-        processedAt: (int) \Drupal::time()->getRequestTime(),
+      return ProcessedDocument::create(
         fileId: (int) $file->id(),
+        fileName: $file->getFilename(),
+        fileType: FileType::MARKDOWN,
+        markdownContent: $bodyContent,
+        metadata: $metadata,
+        provider: ProcessingProvider::PHP_NATIVE,
       );
     }
     catch (DocumentProcessingException $e) {
