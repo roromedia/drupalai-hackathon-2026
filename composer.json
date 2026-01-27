@@ -112,8 +112,7 @@
             "drupal/canvas": {
                 "#3568950: Let the agent know that the tools were succesful": "https://git.drupalcode.org/project/canvas/-/merge_requests/493.patch",
                 "Allow private file scheme and fix UriSchemeConstraintValidator for File entities": "patches/canvas-allow-private-file-uploads.patch",
-                "https://www.drupal.org/project/canvas/issues/3556590": "https://git.drupalcode.org/project/canvas/-/merge_requests/444.patch",
-                "Fix YAML object encoding in CanvasAiComponentDescriptionSettingsForm": "patches/canvas-ai-yaml-object-encoding-fix.patch"
+                "https://www.drupal.org/project/canvas/issues/3556590": "https://git.drupalcode.org/project/canvas/-/merge_requests/444.patch"
             }
 
         }
