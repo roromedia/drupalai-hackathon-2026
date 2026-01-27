@@ -1,5 +1,5 @@
 {
-    "_hash": "ca52a5fe1436fefc63993d32a424d06802cb11edd2da36b900d973247549a577",
+    "_hash": "65d605527616531c9620a79aff93e9a9f9a11626e63a8d04fd7cecaeb61255d6",
     "patches": {
         "drupal/core": [
             {
@@ -39,6 +39,16 @@
                 "description": "https://www.drupal.org/project/canvas/issues/3556590",
                 "url": "https://git.drupalcode.org/project/canvas/-/merge_requests/444.patch",
                 "sha256": "52ffcbef44058fe5e53e39e5dfdd013faa4d031462bd14a6d2664bf513dd2b49",
+                "depth": 1,
+                "extra": {
+                    "provenance": "root"
+                }
+            },
+            {
+                "package": "drupal/canvas",
+                "description": "Fix YAML object encoding in CanvasAiComponentDescriptionSettingsForm",
+                "url": "patches/canvas-ai-yaml-object-encoding-fix.patch",
+                "sha256": "fbd36a48958d9a25e4f9abc92e441131bcca8949d1cae4edb24c5e693109584f",
                 "depth": 1,
                 "extra": {
                     "provenance": "root"
