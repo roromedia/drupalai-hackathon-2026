@@ -1,0 +1,10 @@
+uuid: b3946d56-8210-497d-84a3-f609cc94da24
+langcode: en
+status: true
+dependencies: {  }
+id: rewrite_for_clarity
+label: 'Rewrite for Clarity'
+description: 'Rewrite all texts for maximum clarity'
+content: 'Rewrite all texts for clarity. use proper structure.'
+tags:
+  - '2'
