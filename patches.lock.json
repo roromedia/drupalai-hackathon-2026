@@ -1,5 +1,5 @@
 {
-    "_hash": "96f0b507786a02f6bbf29db43424724bcc60b23aa6c8cb49d5c4ed862fd49f5b",
+    "_hash": "ca52a5fe1436fefc63993d32a424d06802cb11edd2da36b900d973247549a577",
     "patches": {
         "drupal/core": [
             {
@@ -19,6 +19,16 @@
                 "description": "#3568950: Let the agent know that the tools were succesful",
                 "url": "https://git.drupalcode.org/project/canvas/-/merge_requests/493.patch",
                 "sha256": "e0fd9587ebcd9dc70843374473a1026c2c8cccece310de558959b3132822ca9d",
+                "depth": 1,
+                "extra": {
+                    "provenance": "root"
+                }
+            },
+            {
+                "package": "drupal/canvas",
+                "description": "Allow private file scheme and fix UriSchemeConstraintValidator for File entities",
+                "url": "patches/canvas-allow-private-file-uploads.patch",
+                "sha256": "310938fb6ad20a0dbb594a5445f609272d8035fbf9a8b9fc714443fc9391862e",
                 "depth": 1,
                 "extra": {
                     "provenance": "root"
