@@ -10,17 +10,6 @@ _core:
 id: canvas_page_builder_agent
 label: 'Drupal Canvas Page Builder Agent'
 description: 'This agent can insert one or many existing components or sections into a specific location on a page. Use this to place a previously created component or section on a layout or page.'
-default_information_tools: |
-  current_layout:
-    label: 'Current layout'
-    description: 'The current layout of the page is:'
-    tool: 'canvas_ai:get_current_layout'
-    parameters: {  }
-  available_components:
-    label: 'Available components'
-    description: 'These are the Components available to use'
-    tool: 'canvas_ai:get_component_context'
-    parameters: {  }
 system_prompt: |
   ### **1. Persona and Core Mission**
 
@@ -179,12 +168,6 @@ system_prompt: |
 secured_system_prompt: '[ai_agent:agent_instructions]'
 tools:
   'canvas_ai:set_component_structure': true
-tool_usage_limits:
-  'canvas_ai:set_component_structure':
-    component_structure:
-      action: ''
-      hide_property: 0
-      values: ''
 tool_settings:
   'canvas_ai:set_component_structure':
     return_directly: 0
@@ -194,7 +177,24 @@ tool_settings:
 orchestration_agent: false
 triage_agent: false
 max_loops: 10
-masquerade_roles: {  }
+default_information_tools: |
+  current_layout:
+    label: 'Current layout'
+    description: 'The current layout of the page is:'
+    tool: 'canvas_ai:get_current_layout'
+    parameters: {  }
+  available_components:
+    label: 'Available components'
+    description: 'These are the Components available to use'
+    tool: 'canvas_ai:get_component_context'
+    parameters: {  }
+tool_usage_limits:
+  'canvas_ai:set_component_structure':
+    component_structure:
+      action: ''
+      hide_property: 0
+      values: ''
 exclude_users_role: false
+masquerade_roles: {  }
 structured_output_enabled: false
 structured_output_schema: ''

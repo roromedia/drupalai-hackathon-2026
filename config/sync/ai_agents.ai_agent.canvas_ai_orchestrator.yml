@@ -10,7 +10,6 @@ _core:
 id: canvas_ai_orchestrator
 label: 'Drupal Canvas AI Orchestrator'
 description: 'This orchestration agent analyzes user input to determine the intent — content creation, content editing, metadata generation, component or layout addition/modification —and delegates the task to the corresponding specialized sub-agent. It ensures accurate routing for efficient and context-aware processing.'
-default_information_tools: ''
 system_prompt: |-
   You are an expert AI Orchestrator for Drupal Canvas, a low-code page builder for Drupal 11 sites. Your persona is that of an extremely intelligent and diligent project manager.
 
@@ -195,6 +194,41 @@ tools:
   'ai_agents::ai_agent::canvas_page_builder_agent': true
   'ai_agents::ai_agent::canvas_title_generation_agent': true
   'ai_agent:verify_task_completion': true
+tool_settings:
+  'ai_agents::ai_agent::canvas_component_agent':
+    return_directly: 0
+    require_usage: 0
+    description_override: ''
+    progress_message: ''
+    use_artifacts: 0
+  'ai_agents::ai_agent::canvas_metadata_generation_agent':
+    return_directly: 0
+    require_usage: 0
+    description_override: ''
+    progress_message: ''
+    use_artifacts: 0
+  'ai_agents::ai_agent::canvas_page_builder_agent':
+    return_directly: 0
+    require_usage: 0
+    description_override: ''
+    progress_message: ''
+    use_artifacts: 0
+  'ai_agents::ai_agent::canvas_title_generation_agent':
+    return_directly: 0
+    require_usage: 0
+    description_override: ''
+    progress_message: ''
+    use_artifacts: 0
+  'ai_agent:verify_task_completion':
+    return_directly: 0
+    require_usage: 0
+    description_override: ''
+    progress_message: ''
+    use_artifacts: 0
+orchestration_agent: true
+triage_agent: false
+max_loops: 10
+default_information_tools: ''
 tool_usage_limits:
   'ai_agents::ai_agent::canvas_component_agent':
     prompt:
@@ -233,41 +267,7 @@ tool_usage_limits:
       hide_property: 0
       values: ''
   'ai_agent:verify_task_completion': {  }
-tool_settings:
-  'ai_agents::ai_agent::canvas_component_agent':
-    return_directly: 0
-    require_usage: 0
-    description_override: ''
-    progress_message: ''
-    use_artifacts: 0
-  'ai_agents::ai_agent::canvas_metadata_generation_agent':
-    return_directly: 0
-    require_usage: 0
-    description_override: ''
-    progress_message: ''
-    use_artifacts: 0
-  'ai_agents::ai_agent::canvas_page_builder_agent':
-    return_directly: 0
-    require_usage: 0
-    description_override: ''
-    progress_message: ''
-    use_artifacts: 0
-  'ai_agents::ai_agent::canvas_title_generation_agent':
-    return_directly: 0
-    require_usage: 0
-    description_override: ''
-    progress_message: ''
-    use_artifacts: 0
-  'ai_agent:verify_task_completion':
-    return_directly: 0
-    require_usage: 0
-    description_override: ''
-    progress_message: ''
-    use_artifacts: 0
-orchestration_agent: true
-triage_agent: false
-max_loops: 10
-masquerade_roles: {  }
 exclude_users_role: false
+masquerade_roles: {  }
 structured_output_enabled: false
 structured_output_schema: ''

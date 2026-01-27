@@ -20,6 +20,7 @@
         "composer/installers": "^2.3",
         "cweagans/composer-patches": "^2.0",
         "drupal/ai": "^1.2.6",
+        "drupal/ai_context": "^0.1@alpha",
         "drupal/ai_provider_amazeeio": "1.2.x-dev",
         "drupal/byte": "^1@beta",
         "drupal/byte_theme": "@beta",
@@ -108,6 +109,7 @@
                 "#3564735: Synthetic service (kernel) error during non-interactive install from existing config in Drupal 11.3": "https://git.drupalcode.org/project/drupal/-/merge_requests/14169.patch"
             },
             "drupal/canvas": {
+                "AA": "https://git.drupalcode.org/project/canvas/-/merge_requests/444.patch",
                 "#3568950: Let the agent know that the tools were succesful": "https://git.drupalcode.org/project/canvas/-/merge_requests/493.patch"
             }
         }
