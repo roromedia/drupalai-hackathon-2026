@@ -8,15 +8,25 @@ use Drupal\ai_content_preparation_wizard\Service\CanvasCreatorInterface;
 use Drupal\ai_content_preparation_wizard\Service\ContentPlanGeneratorInterface;
 use Drupal\ai_content_preparation_wizard\Service\DocumentProcessingServiceInterface;
 use Drupal\ai_content_preparation_wizard\Service\WizardSessionManagerInterface;
+use Drupal\Component\Utility\Html;
+use Drupal\Component\Utility\Xss;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use League\CommonMark\CommonMarkConverter;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Multi-step wizard form for content preparation.
  */
 final class ContentPreparationWizardForm extends FormBase {
+
+  /**
+   * The Canvas AI page builder helper service.
+   *
+   * @var object|null
+   */
+  protected $pageBuilderHelper = NULL;
 
   /**
    * Constructs a ContentPreparationWizardForm object.
@@ -43,13 +53,20 @@ final class ContentPreparationWizardForm extends FormBase {
       $canvasCreator = $container->get('ai_content_preparation_wizard.canvas_creator');
     }
 
-    return new static(
+    $instance = new static(
       $container->get('ai_content_preparation_wizard.wizard_session_manager'),
       $container->get('ai_content_preparation_wizard.document_processing'),
       $container->get('entity_type.manager'),
       $planGenerator,
       $canvasCreator,
     );
+
+    // Inject the page builder helper if canvas_ai module is available.
+    if ($container->has('canvas_ai.page_builder_helper')) {
+      $instance->pageBuilderHelper = $container->get('canvas_ai.page_builder_helper');
+    }
+
+    return $instance;
   }
 
   /**
@@ -187,19 +204,23 @@ final class ContentPreparationWizardForm extends FormBase {
       '#access' => !empty($contextOptions),
     ];
 
-    $form['step1']['ai_template'] = [
+    // Load Canvas pages for template selection.
+    $canvasPageOptions = $this->getCanvasPageOptions();
+    $form['step1']['canvas_page'] = [
       '#type' => 'select',
-      '#title' => $this->t('AI Template'),
-      '#description' => $this->t('Select a template for content generation.'),
-      '#options' => [
-        '' => $this->t('- Select template -'),
-        'general' => $this->t('General content'),
-        'blog_post' => $this->t('Blog post'),
-        'landing_page' => $this->t('Landing page'),
-        'documentation' => $this->t('Documentation'),
-      ],
+      '#title' => $this->t('Canvas Page Template'),
+      '#description' => $this->t('Select an existing Canvas page to use as a template for the structure.'),
+      '#options' => ['' => $this->t('- Select Canvas page -')] + $canvasPageOptions,
       '#default_value' => '',
+      '#access' => !empty($canvasPageOptions),
     ];
+
+    // Show message if no Canvas pages available.
+    if (empty($canvasPageOptions)) {
+      $form['step1']['no_canvas_pages'] = [
+        '#markup' => '<p class="messages messages--warning">' . $this->t('No Canvas pages available. Create a Canvas page first to use as a template.') . '</p>',
+      ];
+    }
 
     $form['actions'] = [
       '#type' => 'actions',
@@ -235,14 +256,25 @@ final class ContentPreparationWizardForm extends FormBase {
       '#attributes' => ['class' => ['wizard-step-content']],
     ];
 
-    if ($plan) {
+    // Check if we need to generate the plan asynchronously.
+    $needsAsyncGeneration = empty($plan) && !empty($processedDocs);
+
+    if ($needsAsyncGeneration) {
+      // Pass endpoint URL for async plan generation.
+      // The async-plan.js is already loaded via the main wizard library.
+      $form['#attached']['drupalSettings']['aiContentPreparationWizard'] = [
+        'asyncPlanEndpoint' => '/admin/content/preparation-wizard/generate-plan',
+      ];
+    }
+
+    if ($plan || $needsAsyncGeneration) {
       // Split layout container.
       $form['step2']['split_layout'] = [
         '#type' => 'container',
         '#attributes' => ['class' => ['step2-split-layout']],
       ];
 
-      // Left panel: Markdown Preview.
+      // Left panel: Markdown Preview with Tabbed Navigation.
       $form['step2']['split_layout']['markdown_panel'] = [
         '#type' => 'container',
         '#attributes' => ['class' => ['markdown-preview-panel']],
@@ -252,11 +284,8 @@ final class ContentPreparationWizardForm extends FormBase {
         '#markup' => '<div class="markdown-preview-header">' . $this->t('Source Document Preview') . '</div>',
       ];
 
-      // Build markdown content from processed documents.
-      $markdownContent = $this->buildMarkdownPreview($processedDocs);
-      $form['step2']['split_layout']['markdown_panel']['content'] = [
-        '#markup' => '<div class="markdown-preview-content">' . $markdownContent . '</div>',
-      ];
+      // Build tabbed document preview.
+      $this->buildTabbedDocumentPreview($form['step2']['split_layout']['markdown_panel'], $processedDocs);
 
       // Right panel: Plan Review.
       $form['step2']['split_layout']['plan_panel'] = [
@@ -269,78 +298,139 @@ final class ContentPreparationWizardForm extends FormBase {
         '#attributes' => ['id' => 'plan-preview-wrapper', 'class' => ['plan-preview']],
       ];
 
-      $form['step2']['split_layout']['plan_panel']['plan_preview']['title'] = [
-        '#type' => 'textfield',
-        '#title' => $this->t('Page Title'),
-        '#default_value' => $plan->title,
-        '#required' => TRUE,
-      ];
-
-      $form['step2']['split_layout']['plan_panel']['plan_preview']['summary'] = [
-        '#type' => 'item',
-        '#title' => $this->t('Summary'),
-        '#markup' => '<p>' . $plan->summary . '</p>',
-      ];
-
-      $form['step2']['split_layout']['plan_panel']['plan_preview']['metadata'] = [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['plan-metadata']],
-        'audience' => [
-          '#markup' => '<div><strong>' . $this->t('Target Audience:') . '</strong> ' . $plan->targetAudience . '</div>',
-        ],
-        'read_time' => [
-          '#markup' => '<div><strong>' . $this->t('Estimated Read Time:') . '</strong> ' . $plan->estimatedReadTime . ' ' . $this->t('minutes') . '</div>',
-        ],
-      ];
-
-      // Display sections (skip empty ones).
-      $sections = [];
-      foreach ($plan->sections as $index => $section) {
-        // Skip sections with empty content.
-        $content = trim($section->content ?? '');
-        if (empty($content)) {
-          continue;
-        }
-
-        $contentLength = mb_strlen($content);
-        $previewLength = 300;
-        $needsReadMore = $contentLength > $previewLength;
-
-        $preview = $needsReadMore
-          ? mb_substr($content, 0, $previewLength) . '...'
-          : $content;
-
-        $contentMarkup = '<div class="section-content-wrapper">';
-        $contentMarkup .= '<div class="section-preview">' . htmlspecialchars($preview, ENT_QUOTES, 'UTF-8') . '</div>';
-
-        if ($needsReadMore) {
-          $contentMarkup .= '<div class="section-full" style="display:none;">' . htmlspecialchars($content, ENT_QUOTES, 'UTF-8') . '</div>';
-          $contentMarkup .= '<a href="#" class="section-read-more" data-section="' . $index . '">' . $this->t('Read more...') . '</a>';
-        }
-
-        $contentMarkup .= '</div>';
-
-        $sections[] = [
-          '#type' => 'details',
-          '#title' => $section->title . ' (' . $section->componentType . ')',
-          '#open' => FALSE,
-          'content' => [
-            '#markup' => $contentMarkup,
+      if ($needsAsyncGeneration) {
+        // Show loading state while plan generates asynchronously.
+        $form['step2']['split_layout']['plan_panel']['plan_preview']['loading'] = [
+          '#type' => 'container',
+          '#attributes' => [
+            'class' => ['plan-loading-container'],
+            'id' => 'plan-loading',
+          ],
+          'spinner' => [
+            '#markup' => '<div class="plan-loading-spinner"></div>',
+          ],
+          'message' => [
+            '#markup' => '<div class="plan-loading-message">' . $this->t('Generating content plan with AI...') . '</div>',
+          ],
+          'status' => [
+            '#markup' => '<div class="plan-loading-status" id="plan-loading-status">' . $this->t('Analyzing documents and creating sections...') . '</div>',
           ],
         ];
+
+        // Hidden title field that will be populated by JS.
+        $form['step2']['split_layout']['plan_panel']['plan_preview']['title'] = [
+          '#type' => 'textfield',
+          '#title' => $this->t('Page Title'),
+          '#default_value' => '',
+          '#required' => TRUE,
+          '#attributes' => ['id' => 'edit-title-async', 'style' => 'display:none;'],
+          '#title_display' => 'invisible',
+        ];
+
+        // Container for dynamically loaded plan content.
+        $form['step2']['split_layout']['plan_panel']['plan_preview']['async_content'] = [
+          '#type' => 'container',
+          '#attributes' => [
+            'id' => 'plan-async-content',
+            'style' => 'display:none;',
+          ],
+        ];
+
+        // Sections container will be populated by JavaScript.
+        $form['step2']['split_layout']['plan_panel']['plan_preview']['sections'] = [
+          '#type' => 'container',
+          '#attributes' => [
+            'class' => ['plan-sections-list'],
+            'id' => 'plan-sections-container',
+          ],
+          '#tree' => TRUE,
+        ];
+      }
+      else {
+        // Plan already exists - render normally.
+        $form['step2']['split_layout']['plan_panel']['plan_preview']['title'] = [
+          '#type' => 'textfield',
+          '#title' => $this->t('Page Title'),
+          '#default_value' => $plan->title,
+          '#required' => TRUE,
+        ];
+
+        $form['step2']['split_layout']['plan_panel']['plan_preview']['summary'] = [
+          '#type' => 'item',
+          '#title' => $this->t('Summary'),
+          '#markup' => '<p>' . $plan->summary . '</p>',
+        ];
+
+        $form['step2']['split_layout']['plan_panel']['plan_preview']['metadata'] = [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['plan-metadata']],
+          'audience' => [
+            '#markup' => '<div><strong>' . $this->t('Target Audience:') . '</strong> ' . $plan->targetAudience . '</div>',
+          ],
+          'read_time' => [
+            '#markup' => '<div><strong>' . $this->t('Estimated Read Time:') . '</strong> ' . $plan->estimatedReadTime . ' ' . $this->t('minutes') . '</div>',
+          ],
+        ];
+
+        // Get available component options.
+        $componentOptions = $this->getAvailableComponentOptions($session);
+
+        // Display sections (skip empty ones).
+        $form['step2']['split_layout']['plan_panel']['plan_preview']['sections'] = [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['plan-sections-list']],
+          '#tree' => TRUE,
+        ];
+
+        foreach ($plan->sections as $index => $section) {
+          // Skip sections with empty content.
+          $content = trim($section->content ?? '');
+          if (empty($content)) {
+            continue;
+          }
+
+          $sectionId = $section->id ?? 'section_' . $index;
+
+          $form['step2']['split_layout']['plan_panel']['plan_preview']['sections'][$sectionId] = [
+            '#type' => 'details',
+            '#title' => $section->title,
+            '#open' => FALSE,
+            '#attributes' => ['class' => ['plan-section-item']],
+          ];
+
+          // Component type dropdown.
+          $form['step2']['split_layout']['plan_panel']['plan_preview']['sections'][$sectionId]['component_type'] = [
+            '#type' => 'select',
+            '#title' => $this->t('Component Type'),
+            '#options' => $componentOptions,
+            '#default_value' => $section->componentType,
+            '#attributes' => ['class' => ['section-component-select']],
+          ];
+
+          // Section content - editable textarea.
+          $form['step2']['split_layout']['plan_panel']['plan_preview']['sections'][$sectionId]['content'] = [
+            '#type' => 'textarea',
+            '#title' => $this->t('Section Content'),
+            '#default_value' => $content,
+            '#rows' => 6,
+            '#attributes' => ['class' => ['section-content-textarea']],
+          ];
+
+          // Store original index for submit handler.
+          $form['step2']['split_layout']['plan_panel']['plan_preview']['sections'][$sectionId]['original_index'] = [
+            '#type' => 'hidden',
+            '#value' => $index,
+          ];
+        }
       }
 
-      $form['step2']['split_layout']['plan_panel']['plan_preview']['sections'] = [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['plan-sections-list']],
-        '#title' => $this->t('Content Sections'),
-        'items' => $sections,
-      ];
-
-      // Refinement section.
+      // Refinement section (always visible, but disabled during async loading).
       $form['step2']['split_layout']['plan_panel']['refinement_section'] = [
         '#type' => 'container',
-        '#attributes' => ['class' => ['refinement-section']],
+        '#attributes' => [
+          'class' => ['refinement-section'],
+          'id' => 'refinement-section',
+        ],
       ];
 
       $form['step2']['split_layout']['plan_panel']['refinement_section']['refinement'] = [
@@ -349,6 +439,7 @@ final class ContentPreparationWizardForm extends FormBase {
         '#description' => $this->t('Enter instructions to modify the content plan.'),
         '#placeholder' => $this->t('Type instructions to adjust the plan...'),
         '#rows' => 3,
+        '#disabled' => $needsAsyncGeneration,
       ];
 
       $form['step2']['split_layout']['plan_panel']['refinement_section']['regenerate'] = [
@@ -365,6 +456,7 @@ final class ContentPreparationWizardForm extends FormBase {
           ],
         ],
         '#limit_validation_errors' => [['refinement']],
+        '#disabled' => $needsAsyncGeneration,
       ];
     }
     else {
@@ -399,6 +491,10 @@ final class ContentPreparationWizardForm extends FormBase {
         'disable-refocus' => TRUE,
       ],
       '#limit_validation_errors' => [],
+      '#disabled' => $needsAsyncGeneration,
+      '#attributes' => [
+        'id' => 'edit-next-step2',
+      ],
     ];
   }
 
@@ -431,6 +527,36 @@ final class ContentPreparationWizardForm extends FormBase {
       $form['step3']['preview']['sections_count'] = [
         '#markup' => '<p>' . $this->t('@count sections will be created.', ['@count' => count($plan->sections)]) . '</p>',
       ];
+
+      // Show template information if one was selected.
+      $templateId = $session->getTemplateId();
+      if (!empty($templateId)) {
+        $templateInfo = $this->getTemplateInfo($templateId);
+        if ($templateInfo) {
+          $form['step3']['preview']['template_info'] = [
+            '#type' => 'container',
+            '#attributes' => ['class' => ['template-info', 'messages', 'messages--status']],
+            'label' => [
+              '#markup' => '<strong>' . $this->t('Template:') . '</strong> ' . $templateInfo['label'],
+            ],
+            'description' => [
+              '#markup' => '<br><small>' . $this->t('The new page will be created by cloning this template and filling its components with your content.') . '</small>',
+            ],
+          ];
+        }
+      }
+      else {
+        $form['step3']['preview']['no_template_info'] = [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['template-info', 'messages', 'messages--warning']],
+          'label' => [
+            '#markup' => '<strong>' . $this->t('No template selected') . '</strong>',
+          ],
+          'description' => [
+            '#markup' => '<br><small>' . $this->t('A new page will be created with components generated from your content sections.') . '</small>',
+          ],
+        ];
+      }
 
       $form['step3']['page_settings'] = [
         '#type' => 'fieldset',
@@ -492,33 +618,92 @@ final class ContentPreparationWizardForm extends FormBase {
   }
 
   /**
-   * Builds the markdown preview content from processed documents.
+   * Builds a tabbed document preview with proper markdown rendering.
    *
+   * @param array &$container
+   *   The form container to add elements to.
    * @param array $processedDocs
    *   Array of ProcessedDocument objects.
-   *
-   * @return string
-   *   HTML-escaped markdown content for display.
    */
-  protected function buildMarkdownPreview(array $processedDocs): string {
+  protected function buildTabbedDocumentPreview(array &$container, array $processedDocs): void {
     if (empty($processedDocs)) {
-      return '<em>' . $this->t('No documents available for preview.') . '</em>';
+      $container['content'] = [
+        '#markup' => '<div class="markdown-preview-content"><em>' . $this->t('No documents available for preview.') . '</em></div>',
+      ];
+      return;
     }
 
-    $output = [];
-    foreach ($processedDocs as $doc) {
+    // Use Drupal native vertical_tabs for document switching.
+    $container['document_tabs'] = [
+      '#type' => 'vertical_tabs',
+      '#default_tab' => 'edit-doc-0',
+    ];
+
+    foreach ($processedDocs as $index => $doc) {
       if (!isset($doc->markdownContent)) {
         continue;
       }
 
-      // Add document separator with filename.
-      $output[] = '<div class="document-separator">' . htmlspecialchars($doc->fileName ?? 'Document', ENT_QUOTES, 'UTF-8') . '</div>';
+      $fileName = $doc->fileName ?? $this->t('Document @num', ['@num' => $index + 1]);
+      $tabKey = 'doc_' . $index;
 
-      // Add the markdown content (escaped for safe display).
-      $output[] = htmlspecialchars($doc->markdownContent, ENT_QUOTES, 'UTF-8');
+      // Create a details element for each document (becomes a vertical tab).
+      $container[$tabKey] = [
+        '#type' => 'details',
+        '#title' => $fileName,
+        '#group' => 'document_tabs',
+        '#attributes' => ['class' => ['document-tab-panel']],
+      ];
+
+      // Render markdown content inside the tab.
+      $renderedMarkdown = $this->renderMarkdownToHtml($doc->markdownContent);
+      $container[$tabKey]['content'] = [
+        '#markup' => '<div class="markdown-preview-content">' . $renderedMarkdown . '</div>',
+      ];
+    }
+  }
+
+  /**
+   * Renders markdown content to sanitized HTML.
+   *
+   * @param string $markdown
+   *   The raw markdown content.
+   *
+   * @return string
+   *   Sanitized HTML output.
+   */
+  protected function renderMarkdownToHtml(string $markdown): string {
+    // Check if CommonMark library is available.
+    if (!class_exists(CommonMarkConverter::class)) {
+      // Fallback: escape and preserve whitespace.
+      return '<pre class="markdown-fallback">' . Html::escape($markdown) . '</pre>';
     }
 
-    return implode("\n", $output);
+    try {
+      // Create converter with safe defaults.
+      $converter = new CommonMarkConverter([
+        'html_input' => 'strip',
+        'allow_unsafe_links' => FALSE,
+      ]);
+
+      // Convert markdown to HTML.
+      $html = (string) $converter->convert($markdown);
+
+      // Define safe HTML tags for markdown output.
+      $safeTags = [
+        'a', 'abbr', 'b', 'blockquote', 'br', 'code', 'dd', 'del', 'div', 'dl', 'dt',
+        'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'img', 'ins',
+        'li', 'ol', 'p', 'pre', 'span', 'strong', 'sub', 'sup', 'table',
+        'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'ul',
+      ];
+
+      // Sanitize and return.
+      return Xss::filter($html, $safeTags);
+    }
+    catch (\Exception $e) {
+      // Fallback on error: escape content.
+      return '<pre class="markdown-fallback">' . Html::escape($markdown) . '</pre>';
+    }
   }
 
   /**
@@ -549,14 +734,15 @@ final class ContentPreparationWizardForm extends FormBase {
     $contexts = array_filter($form_state->getValue('ai_contexts') ?? []);
     $session->setSelectedContexts(array_values($contexts));
 
-    // Store template.
-    $template = $form_state->getValue('ai_template');
-    if ($template) {
-      $session->setTemplateId($template);
+    // Store Canvas page template.
+    $canvasPageId = $form_state->getValue('canvas_page');
+    if ($canvasPageId) {
+      $session->setTemplateId($canvasPageId);
     }
 
-    // Clear existing documents and process new ones.
+    // Clear existing documents and plan for fresh generation.
     $session->clearProcessedDocuments();
+    $session->clearContentPlan();
     $processedDocs = [];
     foreach ($fileIds as $fileId) {
       if ($fileId) {
@@ -577,10 +763,10 @@ final class ContentPreparationWizardForm extends FormBase {
       }
     }
 
-    // Generate content plan if we have processed documents.
+    // Generate content plan synchronously (AI calls work in form context).
     if (!empty($processedDocs) && $this->planGenerator) {
       try {
-        $plan = $this->planGenerator->generate($processedDocs, $contexts, $template);
+        $plan = $this->planGenerator->generate($processedDocs, $contexts, $canvasPageId);
         $session->setContentPlan($plan);
       }
       catch (\Exception $e) {
@@ -605,10 +791,62 @@ final class ContentPreparationWizardForm extends FormBase {
     if ($session) {
       $plan = $session->getContentPlan();
       if ($plan) {
+        $planUpdated = FALSE;
+
         // Update title if changed.
         $newTitle = $form_state->getValue('title');
         if ($newTitle && $newTitle !== $plan->title) {
           $plan = $plan->withTitle($newTitle);
+          $planUpdated = TRUE;
+        }
+
+        // Update section component types and content if changed.
+        $sectionsData = $form_state->getValue('sections') ?? [];
+        if (!empty($sectionsData)) {
+          $updatedSections = [];
+          foreach ($plan->sections as $index => $section) {
+            $sectionId = $section->id ?? 'section_' . $index;
+            $needsUpdate = FALSE;
+            $newComponentType = $section->componentType;
+            $newContent = $section->content;
+
+            // Check for component type change.
+            if (isset($sectionsData[$sectionId]['component_type'])) {
+              $submittedComponentType = $sectionsData[$sectionId]['component_type'];
+              if ($submittedComponentType !== $section->componentType) {
+                $newComponentType = $submittedComponentType;
+                $needsUpdate = TRUE;
+              }
+            }
+
+            // Check for content change.
+            if (isset($sectionsData[$sectionId]['content'])) {
+              $submittedContent = trim($sectionsData[$sectionId]['content']);
+              if ($submittedContent !== trim($section->content)) {
+                $newContent = $submittedContent;
+                $needsUpdate = TRUE;
+              }
+            }
+
+            if ($needsUpdate) {
+              // Create updated section with new values.
+              $section = new \Drupal\ai_content_preparation_wizard\Model\PlanSection(
+                $section->id,
+                $section->title,
+                $newContent,
+                $newComponentType,
+                $section->order,
+                $section->componentConfig,
+                $section->children
+              );
+              $planUpdated = TRUE;
+            }
+            $updatedSections[] = $section;
+          }
+          $plan = $plan->withSections($updatedSections);
+        }
+
+        if ($planUpdated) {
           $session->setContentPlan($plan);
           $this->sessionManager->updateSession($session);
         }
@@ -725,21 +963,195 @@ final class ContentPreparationWizardForm extends FormBase {
         'status' => (bool) $form_state->getValue('status'),
       ];
 
-      $page = $this->canvasCreator->create($plan, $options);
+      // Get the template ID from the session (selected in step 1).
+      $templateId = $session->getTemplateId();
+
+      // Use template-based creation if a template was selected,
+      // otherwise fall back to building components from scratch.
+      if (!empty($templateId)) {
+        $page = $this->canvasCreator->createFromTemplate($plan, $templateId, $options);
+        $this->messenger()->addStatus($this->t('Canvas page "@title" has been created from template.', [
+          '@title' => $page->label(),
+        ]));
+      }
+      else {
+        $page = $this->canvasCreator->create($plan, $options);
+        $this->messenger()->addStatus($this->t('Canvas page "@title" has been created successfully.', [
+          '@title' => $page->label(),
+        ]));
+      }
 
       $this->sessionManager->clearSession();
 
-      $this->messenger()->addStatus($this->t('Canvas page "@title" has been created successfully.', [
-        '@title' => $page->label(),
-      ]));
-
       // Redirect to the created page.
       $form_state->setRedirectUrl($page->toUrl());
+    }
+    catch (\Drupal\ai_content_preparation_wizard\Exception\CanvasCreationException $e) {
+      $this->messenger()->addError($this->t('Failed to create Canvas page: @error', [
+        '@error' => $e->getMessage(),
+      ]));
+      // Show detailed validation errors if available.
+      if ($e->validationErrors) {
+        foreach ($e->validationErrors as $validationError) {
+          $this->messenger()->addError($validationError);
+        }
+      }
     }
     catch (\Exception $e) {
       $this->messenger()->addError($this->t('Failed to create Canvas page: @error', [
         '@error' => $e->getMessage(),
       ]));
+    }
+  }
+
+  /**
+   * Gets Canvas page options for a select element.
+   *
+   * @return array
+   *   An array of Canvas page options keyed by page ID.
+   */
+  protected function getCanvasPageOptions(): array {
+    $options = [];
+
+    try {
+      // Check if canvas_page entity type exists.
+      $definition = $this->entityTypeManager->getDefinition('canvas_page', FALSE);
+      if ($definition === NULL) {
+        return $options;
+      }
+
+      $storage = $this->entityTypeManager->getStorage('canvas_page');
+      $query = $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->sort('title', 'ASC');
+
+      $ids = $query->execute();
+      $pages = $storage->loadMultiple($ids);
+
+      foreach ($pages as $page) {
+        $status = $page->isPublished() ? '' : ' ' . $this->t('(unpublished)');
+        $options[$page->id()] = $page->label() . $status;
+      }
+    }
+    catch (\Exception $e) {
+      // Canvas module not available or query failed - return empty options.
+    }
+
+    return $options;
+  }
+
+  /**
+   * Gets available component options for section dropdowns.
+   *
+   * This method combines components from the selected Canvas page template
+   * (if any) with all available Canvas components.
+   *
+   * @param \Drupal\ai_content_preparation_wizard\Model\WizardSession|null $session
+   *   The wizard session.
+   *
+   * @return array
+   *   An array of component options keyed by component ID.
+   */
+  protected function getAvailableComponentOptions($session): array {
+    $options = [];
+    $templateComponents = [];
+
+    // Get components from the selected Canvas page template.
+    $templateId = $session?->getTemplateId();
+    if ($templateId) {
+      try {
+        $canvasPage = $this->entityTypeManager->getStorage('canvas_page')->load($templateId);
+        if ($canvasPage) {
+          $componentTree = $canvasPage->get('components');
+          if ($componentTree) {
+            // Get unique component IDs from the template.
+            foreach ($componentTree as $item) {
+              $componentId = $item->get('component_id')->getValue();
+              if ($componentId && !isset($templateComponents[$componentId])) {
+                $templateComponents[$componentId] = $componentId;
+              }
+            }
+          }
+        }
+      }
+      catch (\Exception $e) {
+        // Failed to load template components.
+      }
+    }
+
+    // Get SDC components only from the page builder helper.
+    // This must match exactly what getSdcComponentsForPrompt() returns in ContentPlanGenerator
+    // so the AI-selected component_type matches the dropdown options.
+    if ($this->pageBuilderHelper) {
+      try {
+        $componentsBySource = $this->pageBuilderHelper->getAllComponentsKeyedBySource();
+        // Filter to ONLY Single Directory Components (SDC) - source ID is 'sdc'.
+        // This matches the AI prompt which only sees SDC components.
+        $sdcComponents = $componentsBySource['sdc']['components'] ?? [];
+
+        foreach ($sdcComponents as $componentId => $componentData) {
+          $componentName = $componentData['name'] ?? $componentId;
+          // Mark components from the template.
+          $suffix = isset($templateComponents[$componentId]) ? ' ★' : '';
+          $options[$componentId] = $componentName . $suffix;
+        }
+      }
+      catch (\Exception $e) {
+        // Failed to load available components.
+      }
+    }
+
+    // If no SDC components available, add fallback options.
+    // Note: These should ideally never be used if Canvas AI is properly configured.
+    if (empty($options)) {
+      $options = [
+        'text' => $this->t('Text'),
+        'heading' => $this->t('Heading'),
+        'image' => $this->t('Image'),
+        'accordion' => $this->t('Accordion'),
+        'card' => $this->t('Card'),
+        'list' => $this->t('List'),
+        'quote' => $this->t('Quote'),
+        'table' => $this->t('Table'),
+      ];
+    }
+
+    // Sort options alphabetically.
+    asort($options);
+
+    return $options;
+  }
+
+  /**
+   * Gets information about a template Canvas page.
+   *
+   * @param string|int $templateId
+   *   The template Canvas page ID.
+   *
+   * @return array|null
+   *   Array with 'label' and 'id' keys, or NULL if not found.
+   */
+  protected function getTemplateInfo(string|int $templateId): ?array {
+    try {
+      $definition = $this->entityTypeManager->getDefinition('canvas_page', FALSE);
+      if ($definition === NULL) {
+        return NULL;
+      }
+
+      $storage = $this->entityTypeManager->getStorage('canvas_page');
+      $templatePage = $storage->load($templateId);
+
+      if ($templatePage === NULL) {
+        return NULL;
+      }
+
+      return [
+        'id' => $templatePage->id(),
+        'label' => $templatePage->label(),
+      ];
+    }
+    catch (\Exception $e) {
+      return NULL;
     }
   }
 

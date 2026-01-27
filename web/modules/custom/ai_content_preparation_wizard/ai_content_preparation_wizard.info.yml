@@ -8,3 +8,4 @@ dependencies:
   - drupal:file
   - ai:ai
   - canvas:canvas
+  - canvas_ai:canvas_ai

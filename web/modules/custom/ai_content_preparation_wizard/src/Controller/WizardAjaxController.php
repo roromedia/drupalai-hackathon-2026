@@ -12,12 +12,20 @@ use Drupal\Core\Ajax\MessageCommand;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Render\RendererInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Controller for wizard AJAX operations.
  */
 final class WizardAjaxController extends ControllerBase {
+
+  /**
+   * The Canvas AI page builder helper service.
+   *
+   * @var object|null
+   */
+  protected $pageBuilderHelper = NULL;
 
   /**
    * Constructs a WizardAjaxController object.
@@ -32,11 +40,18 @@ final class WizardAjaxController extends ControllerBase {
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container): static {
-    return new static(
+    $instance = new static(
       $container->get('ai_content_preparation_wizard.wizard_session_manager'),
       $container->get('ai_content_preparation_wizard.content_plan_generator'),
       $container->get('renderer'),
     );
+
+    // Inject the page builder helper if canvas_ai module is available.
+    if ($container->has('canvas_ai.page_builder_helper')) {
+      $instance->pageBuilderHelper = $container->get('canvas_ai.page_builder_helper');
+    }
+
+    return $instance;
   }
 
   /**
@@ -115,6 +130,186 @@ final class WizardAjaxController extends ControllerBase {
     }
 
     return $response;
+  }
+
+  /**
+   * AJAX endpoint for async plan generation.
+   *
+   * Called from Step 2 to generate the content plan asynchronously,
+   * allowing faster page load.
+   *
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The request object.
+   *
+   * @return \Symfony\Component\HttpFoundation\JsonResponse
+   *   JSON response with plan data or error.
+   */
+  public function generatePlanAsync(Request $request): JsonResponse {
+    try {
+      $session = $this->sessionManager->getSession();
+      if (!$session) {
+        return new JsonResponse([
+          'success' => FALSE,
+          'error' => $this->t('No active wizard session found.'),
+        ], 400);
+      }
+
+      // Check if we already have a plan (might be a refresh).
+      $existingPlan = $session->getContentPlan();
+      if ($existingPlan) {
+        return $this->buildPlanJsonResponse($existingPlan, $session);
+      }
+
+      // Get processed documents from session.
+      $processedDocs = $session->getProcessedDocuments() ?? [];
+      if (empty($processedDocs)) {
+        return new JsonResponse([
+          'success' => FALSE,
+          'error' => $this->t('No processed documents found.'),
+        ], 400);
+      }
+
+      // Get contexts and template from session.
+      $contexts = $session->getSelectedContexts();
+      $templateId = $session->getTemplateId();
+
+      // Generate the plan.
+      $plan = $this->planGenerator->generate($processedDocs, $contexts, $templateId);
+      $session->setContentPlan($plan);
+      $this->sessionManager->updateSession($session);
+
+      return $this->buildPlanJsonResponse($plan, $session);
+
+    }
+    catch (\Exception $e) {
+      $this->getLogger('ai_content_preparation_wizard')->error('Async plan generation failed: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+
+      return new JsonResponse([
+        'success' => FALSE,
+        'error' => $this->t('Failed to generate plan: @error', ['@error' => $e->getMessage()]),
+      ], 500);
+    }
+  }
+
+  /**
+   * Builds JSON response with plan data.
+   *
+   * @param \Drupal\ai_content_preparation_wizard\Model\ContentPlan $plan
+   *   The content plan.
+   * @param mixed $session
+   *   The wizard session.
+   *
+   * @return \Symfony\Component\HttpFoundation\JsonResponse
+   *   JSON response with plan data.
+   */
+  protected function buildPlanJsonResponse($plan, $session): JsonResponse {
+    // Get component options for dropdowns.
+    $componentOptions = $this->getAvailableComponentOptions($session);
+
+    // Build sections data.
+    $sections = [];
+    foreach ($plan->sections as $index => $section) {
+      // Skip sections with empty content.
+      $content = trim($section->content ?? '');
+      if (empty($content)) {
+        continue;
+      }
+
+      $sectionId = $section->id ?? 'section_' . $index;
+
+      $sections[] = [
+        'id' => $sectionId,
+        'title' => $section->title,
+        'content' => $content,
+        'componentType' => $section->componentType,
+        'index' => $index,
+      ];
+    }
+
+    return new JsonResponse([
+      'success' => TRUE,
+      'plan' => [
+        'title' => $plan->title,
+        'summary' => $plan->summary,
+        'targetAudience' => $plan->targetAudience,
+        'estimatedReadTime' => $plan->estimatedReadTime,
+        'sections' => $sections,
+      ],
+      'componentOptions' => $componentOptions,
+    ]);
+  }
+
+  /**
+   * Gets available component options for section dropdowns.
+   *
+   * @param mixed $session
+   *   The wizard session.
+   *
+   * @return array
+   *   An array of component options keyed by component ID.
+   */
+  protected function getAvailableComponentOptions($session): array {
+    $options = [];
+    $templateComponents = [];
+
+    // Get components from the selected Canvas page template.
+    $templateId = $session?->getTemplateId();
+    if ($templateId) {
+      try {
+        $canvasPage = $this->entityTypeManager()->getStorage('canvas_page')->load($templateId);
+        if ($canvasPage) {
+          $componentTree = $canvasPage->get('components');
+          if ($componentTree) {
+            foreach ($componentTree as $item) {
+              $componentId = $item->get('component_id')->getValue();
+              if ($componentId && !isset($templateComponents[$componentId])) {
+                $templateComponents[$componentId] = $componentId;
+              }
+            }
+          }
+        }
+      }
+      catch (\Exception $e) {
+        // Failed to load template components.
+      }
+    }
+
+    // Get SDC components only from the page builder helper.
+    if ($this->pageBuilderHelper) {
+      try {
+        $componentsBySource = $this->pageBuilderHelper->getAllComponentsKeyedBySource();
+        $sdcComponents = $componentsBySource['sdc']['components'] ?? [];
+
+        foreach ($sdcComponents as $componentId => $componentData) {
+          $componentName = $componentData['name'] ?? $componentId;
+          $suffix = isset($templateComponents[$componentId]) ? ' ★' : '';
+          $options[$componentId] = $componentName . $suffix;
+        }
+      }
+      catch (\Exception $e) {
+        // Failed to load available components.
+      }
+    }
+
+    // Fallback options if no SDC components available.
+    if (empty($options)) {
+      $options = [
+        'text' => (string) $this->t('Text'),
+        'heading' => (string) $this->t('Heading'),
+        'image' => (string) $this->t('Image'),
+        'accordion' => (string) $this->t('Accordion'),
+        'card' => (string) $this->t('Card'),
+        'list' => (string) $this->t('List'),
+        'quote' => (string) $this->t('Quote'),
+        'table' => (string) $this->t('Table'),
+      ];
+    }
+
+    asort($options);
+
+    return $options;
   }
 
   /**

@@ -45,3 +45,4 @@ services:
       - '@uuid'
       - '@datetime.time'
       - '@entity_type.manager'
+      - '@canvas_ai.page_builder_helper'

@@ -172,8 +172,9 @@ class PandocProcessor extends DocumentProcessorBase {
       // Convert document to markdown.
       $markdownContent = $this->pandocConverter->convertToMarkdown($realPath, $format);
 
-      // Save markdown to log file for debugging.
-      $this->saveMarkdownLog($file, $markdownContent);
+      // Debug logging disabled for performance.
+      // Uncomment the following line to enable markdown logging:
+      // $this->saveMarkdownLog($file, $markdownContent);
 
       // Extract metadata.
       $metadata = $this->extractMetadata($file);

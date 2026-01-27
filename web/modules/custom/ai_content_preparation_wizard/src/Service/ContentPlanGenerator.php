@@ -9,6 +9,7 @@ use Drupal\ai\OperationType\Chat\ChatInput;
 use Drupal\ai\OperationType\Chat\ChatMessage;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Component\Serialization\Json;
+use Drupal\Component\Serialization\Yaml;
 use Drupal\Component\Uuid\UuidInterface;
 use Drupal\ai_content_preparation_wizard\Exception\PlanGenerationException;
 use Drupal\ai_content_preparation_wizard\Model\AIContext;
@@ -17,6 +18,7 @@ use Drupal\ai_content_preparation_wizard\Model\PlanSection;
 use Drupal\ai_content_preparation_wizard\Model\ProcessedDocument;
 use Drupal\ai_content_preparation_wizard\Model\RefinementEntry;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\canvas_ai\CanvasAiPageBuilderHelper;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Psr\Log\LoggerInterface;
@@ -40,6 +42,16 @@ class ContentPlanGenerator implements ContentPlanGeneratorInterface {
   private const OPERATION_TYPE = 'chat';
 
   /**
+   * Maximum content length per document (in characters) before truncation.
+   */
+  private const MAX_DOCUMENT_CONTENT_LENGTH = 50000;
+
+  /**
+   * Maximum total content length for all documents combined.
+   */
+  private const MAX_TOTAL_CONTENT_LENGTH = 100000;
+
+  /**
    * The logger instance.
    *
    * @var \Psr\Log\LoggerInterface
@@ -59,6 +71,10 @@ class ContentPlanGenerator implements ContentPlanGeneratorInterface {
    *   The UUID generator.
    * @param \Drupal\Component\Datetime\TimeInterface $time
    *   The time service.
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
+   *   The entity type manager.
+   * @param \Drupal\canvas_ai\CanvasAiPageBuilderHelper $pageBuilderHelper
+   *   The Canvas AI page builder helper for component descriptions.
    */
   public function __construct(
     protected readonly AiProviderPluginManager $aiProviderManager,
@@ -67,6 +83,7 @@ class ContentPlanGenerator implements ContentPlanGeneratorInterface {
     protected readonly UuidInterface $uuid,
     protected readonly TimeInterface $time,
     protected readonly EntityTypeManagerInterface $entityTypeManager,
+    protected readonly CanvasAiPageBuilderHelper $pageBuilderHelper,
   ) {
     $this->logger = $this->loggerFactory->get('ai_content_preparation_wizard');
   }
@@ -237,14 +254,66 @@ class ContentPlanGenerator implements ContentPlanGeneratorInterface {
         continue;
       }
 
+      // Clean and truncate the markdown content.
+      $content = $this->cleanMarkdownContent($document->markdownContent);
+
+      // Truncate if exceeds per-document limit.
+      if (mb_strlen($content) > self::MAX_DOCUMENT_CONTENT_LENGTH) {
+        $content = mb_substr($content, 0, self::MAX_DOCUMENT_CONTENT_LENGTH);
+        $content .= "\n\n[Content truncated due to length...]";
+      }
+
       $parts[] = sprintf(
         "## Document: %s\n\n%s",
         $document->fileName,
-        $document->markdownContent
+        $content
       );
     }
 
-    return implode("\n\n---\n\n", $parts);
+    $combined = implode("\n\n---\n\n", $parts);
+
+    // Truncate total content if exceeds limit.
+    if (mb_strlen($combined) > self::MAX_TOTAL_CONTENT_LENGTH) {
+      $combined = mb_substr($combined, 0, self::MAX_TOTAL_CONTENT_LENGTH);
+      $combined .= "\n\n[Total content truncated due to length...]";
+    }
+
+    return $combined;
+  }
+
+  /**
+   * Cleans markdown content to reduce token usage.
+   *
+   * Removes excessive whitespace, base64 images, and other unnecessary content.
+   *
+   * @param string $content
+   *   The raw markdown content.
+   *
+   * @return string
+   *   The cleaned markdown content.
+   */
+  protected function cleanMarkdownContent(string $content): string {
+    // Remove base64-encoded images (can be very large).
+    $content = preg_replace('/!\[([^\]]*)\]\(data:image[^)]+\)/', '[$1]', $content);
+
+    // Remove excessive blank lines (more than 2 consecutive).
+    $content = preg_replace('/\n{3,}/', "\n\n", $content);
+
+    // Remove excessive spaces (more than 2 consecutive).
+    $content = preg_replace('/[ \t]{3,}/', '  ', $content);
+
+    // Remove HTML comments.
+    $content = preg_replace('/<!--.*?-->/s', '', $content);
+
+    // Remove zero-width characters and other invisible unicode.
+    $content = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $content);
+
+    // Trim each line to remove trailing whitespace.
+    $lines = explode("\n", $content);
+    $lines = array_map('rtrim', $lines);
+    $content = implode("\n", $lines);
+
+    return trim($content);
   }
 
   /**
@@ -333,6 +402,9 @@ class ContentPlanGenerator implements ContentPlanGeneratorInterface {
    *   The system prompt.
    */
   protected function buildGenerationSystemPrompt(?string $templateId = NULL, array $options = []): string {
+    // Build component type instruction with filtered SDC components.
+    $componentTypeInstruction = $this->buildComponentTypeInstruction('');
+
     $prompt = <<<PROMPT
 You are a content planning assistant specializing in creating structured content plans for web pages. Your task is to analyze the provided documents and create a comprehensive content plan.
 
@@ -344,10 +416,10 @@ Your response MUST be valid JSON matching this schema:
   "estimated_read_time": "integer - Estimated reading time in minutes",
   "sections": [
     {
-      "id": "string - Unique section identifier (e.g., section_001)",
-      "title": "string - Section heading",
+      "id": "string - Unique section identifier using machine names (e.g., section_001, hero_intro)",
+      "title": "string - Human-readable section heading that will be displayed to users (e.g., 'Welcome to Our Story', NOT 'hero_introduction')",
       "content": "string - The planned content for this section",
-      "component_type": "string - One of: heading, text, rich_text, image, list, quote, callout",
+      "component_type": "string - MUST be one of the exact component IDs listed below",
       "order": "integer - Display order (starting from 1)",
       "component_config": "object - Optional component configuration",
       "children": "array - Nested child sections (same structure)"
@@ -355,19 +427,28 @@ Your response MUST be valid JSON matching this schema:
   ]
 }
 
+{$componentTypeInstruction}
+
 Guidelines:
 1. Create logical content sections that flow naturally
-2. Use appropriate component types for different content
-3. Keep sections focused and digestible
-4. Include clear headings for navigation
-5. Consider the target audience when structuring content
-6. Preserve important information from the source documents
-7. Use hierarchy (children) for complex nested content
+2. CRITICAL: The component_type for each section MUST be one of the exact component IDs listed above - do not invent new IDs
+3. Analyze each section's content and select the component whose description best matches its purpose
+4. Keep sections focused and digestible
+5. Include clear headings for navigation
+6. Consider the target audience when structuring content
+7. Preserve important information from the source documents
+8. Use hierarchy (children) for complex nested content
 PROMPT;
 
     // Add template-specific instructions if provided.
     if ($templateId) {
-      $prompt .= "\n\nUse template ID: {$templateId} for additional formatting guidance.";
+      $templateAnalysis = $this->analyzeTemplate($templateId);
+      if ($templateAnalysis) {
+        $prompt .= $this->buildTemplateInstructions($templateAnalysis);
+      }
+      else {
+        $prompt .= "\n\nNote: Template ID {$templateId} specified but could not be analyzed.";
+      }
     }
 
     // Add tone instructions from options.
@@ -381,6 +462,271 @@ PROMPT;
     }
 
     return $prompt;
+  }
+
+  /**
+   * Gets filtered SDC component data for the AI prompt.
+   *
+   * Only returns Single Directory Components (SDC), excluding blocks and JS components.
+   *
+   * @return array
+   *   Array of SDC components with their metadata, or empty array if unavailable.
+   */
+  protected function getSdcComponentsForPrompt(): array {
+    try {
+      // Get all components keyed by source.
+      $allComponents = $this->pageBuilderHelper->getAllComponentsKeyedBySource();
+
+      // Filter to only SDC components (source ID = 'sdc').
+      $sdcComponents = $allComponents['sdc']['components'] ?? [];
+
+      if (empty($sdcComponents)) {
+        $this->logger->warning('No SDC components available for AI component matching.');
+        return [];
+      }
+
+      return $sdcComponents;
+    }
+    catch (\Exception $e) {
+      $this->logger->warning('Failed to get SDC component context for AI: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+      return [];
+    }
+  }
+
+  /**
+   * Builds the component type instruction for the AI prompt.
+   *
+   * Creates a clear, structured prompt with actual component IDs and descriptions
+   * to help the AI select the most appropriate component for each section.
+   *
+   * @param string $componentContext
+   *   Legacy parameter (unused). Component data is fetched directly.
+   *
+   * @return string
+   *   The formatted instruction text with available component options.
+   */
+  protected function buildComponentTypeInstruction(string $componentContext): string {
+    // Get filtered SDC components.
+    $sdcComponents = $this->getSdcComponentsForPrompt();
+
+    if (empty($sdcComponents)) {
+      // Fallback to basic component types if no SDC components available.
+      return <<<TEXT
+Available component_type values: heading, text, rich_text, image, list, quote, callout
+
+Select the component_type that best matches the content of each section.
+TEXT;
+    }
+
+    // Build a structured list of available components with clear IDs and descriptions.
+    $componentList = [];
+    $componentIds = [];
+
+    foreach ($sdcComponents as $componentId => $componentData) {
+      $componentIds[] = $componentId;
+
+      $name = $componentData['name'] ?? $componentId;
+      $description = $componentData['description'] ?? $name;
+
+      // Build a clear component entry.
+      $entry = "- **{$componentId}**: {$name}";
+      if ($description !== $name) {
+        $entry .= " - {$description}";
+      }
+
+      // Add prop hints if available.
+      if (!empty($componentData['props']) && is_array($componentData['props'])) {
+        $propNames = array_keys($componentData['props']);
+        if (count($propNames) > 0 && count($propNames) <= 5) {
+          $entry .= " (props: " . implode(', ', $propNames) . ")";
+        }
+      }
+
+      $componentList[] = $entry;
+    }
+
+    $componentListText = implode("\n", $componentList);
+    $validIds = implode(', ', array_map(fn($id) => "\"{$id}\"", array_slice($componentIds, 0, 10)));
+
+    return <<<TEXT
+## Available Components (Single Directory Components only)
+
+You MUST select component_type from ONLY the following component IDs. The component_type value must EXACTLY match one of these IDs:
+
+{$componentListText}
+
+### VALID component_type VALUES:
+{$validIds}
+
+### Component Selection Rules:
+1. **CRITICAL**: The component_type MUST be one of the exact IDs listed above (e.g., if "canvas_text" is listed, use "canvas_text", NOT "text")
+2. Match based on the component's description and purpose
+3. For text-heavy sections, look for components with "text", "paragraph", or "content" in the name
+4. For headings/titles, look for components with "heading", "title", or "hero" in the name
+5. For lists, look for components with "list", "accordion", or "faq" in the name
+6. For images/media, look for components with "image", "media", or "gallery" in the name
+7. For quotes/testimonials, look for components with "quote", "testimonial", or "blockquote" in the name
+8. If unsure, choose the component whose description best matches the section's content purpose
+TEXT;
+  }
+
+  /**
+   * Analyzes a Canvas page template to understand its component structure.
+   *
+   * @param string $templateId
+   *   The Canvas page entity ID to analyze.
+   *
+   * @return array{
+   *   title: string,
+   *   total_components: int,
+   *   fillable_components: int,
+   *   structure: array<int, array{component_id: string, name: string, slot: ?string, has_text_inputs: bool, text_fields: array<string>}>
+   * }|null
+   *   Analysis of the template structure, or null if template not found.
+   */
+  protected function analyzeTemplate(string $templateId): ?array {
+    try {
+      $storage = $this->entityTypeManager->getStorage('canvas_page');
+      $template = $storage->load($templateId);
+
+      if ($template === NULL) {
+        $this->logger->warning('Template @id not found for analysis.', ['@id' => $templateId]);
+        return NULL;
+      }
+
+      $componentTree = $template->getComponentTree();
+      $components = $componentTree->getValue();
+
+      $analysis = [
+        'title' => $template->label(),
+        'total_components' => count($components),
+        'fillable_components' => 0,
+        'structure' => [],
+      ];
+
+      // Text-related input field names.
+      $textFields = ['text', 'content', 'body', 'description', 'paragraph', 'quote', 'title', 'heading', 'heading_text', 'label', 'name'];
+
+      foreach ($components as $index => $component) {
+        $componentId = $component['component_id'] ?? 'unknown';
+        $inputs = $component['inputs'] ?? '';
+
+        // Decode JSON inputs if needed.
+        if (is_string($inputs)) {
+          $inputs = json_decode($inputs, TRUE) ?? [];
+        }
+
+        // Check which text fields this component has.
+        $componentTextFields = [];
+        foreach ($textFields as $field) {
+          if (isset($inputs[$field])) {
+            $componentTextFields[] = $field;
+          }
+        }
+
+        $hasTextInputs = !empty($componentTextFields);
+        if ($hasTextInputs) {
+          $analysis['fillable_components']++;
+        }
+
+        // Get component name from registry if available.
+        $componentName = $this->getComponentName($componentId);
+
+        $analysis['structure'][] = [
+          'position' => $index + 1,
+          'component_id' => $componentId,
+          'name' => $componentName,
+          'slot' => $component['slot'] ?? NULL,
+          'parent' => $component['parent_uuid'] ?? NULL,
+          'has_text_inputs' => $hasTextInputs,
+          'text_fields' => $componentTextFields,
+        ];
+      }
+
+      return $analysis;
+    }
+    catch (\Exception $e) {
+      $this->logger->warning('Failed to analyze template @id: @message', [
+        '@id' => $templateId,
+        '@message' => $e->getMessage(),
+      ]);
+      return NULL;
+    }
+  }
+
+  /**
+   * Gets a human-readable component name from its ID.
+   *
+   * @param string $componentId
+   *   The component ID (e.g., 'sdc.mercury.hero-billboard').
+   *
+   * @return string
+   *   The component name or formatted ID.
+   */
+  protected function getComponentName(string $componentId): string {
+    // Try to get from SDC components.
+    $sdcComponents = $this->getSdcComponentsForPrompt();
+    if (isset($sdcComponents[$componentId]['name'])) {
+      return $sdcComponents[$componentId]['name'];
+    }
+
+    // Format the component ID as a readable name.
+    $parts = explode('.', $componentId);
+    $name = end($parts);
+    return ucwords(str_replace(['-', '_'], ' ', $name));
+  }
+
+  /**
+   * Builds template structure instructions for the AI prompt.
+   *
+   * @param array $analysis
+   *   The template analysis from analyzeTemplate().
+   *
+   * @return string
+   *   Formatted instructions about the template structure.
+   */
+  protected function buildTemplateInstructions(array $analysis): string {
+    $instructions = "\n\n### TARGET TEMPLATE STRUCTURE\n";
+    $instructions .= "You are creating content to fill a specific page template. ";
+    $instructions .= "The template \"{$analysis['title']}\" has {$analysis['total_components']} components, ";
+    $instructions .= "of which {$analysis['fillable_components']} can display text content.\n\n";
+
+    $instructions .= "**IMPORTANT**: Generate exactly {$analysis['fillable_components']} sections to fill each text component in order.\n\n";
+
+    $instructions .= "Template component structure (in order):\n";
+
+    $sectionNum = 0;
+    foreach ($analysis['structure'] as $component) {
+      $indent = $component['parent'] ? '  └─ ' : '';
+      $slotInfo = $component['slot'] ? " (in slot: {$component['slot']})" : '';
+
+      if ($component['has_text_inputs']) {
+        $sectionNum++;
+        $fields = implode(', ', $component['text_fields']);
+        $instructions .= "{$indent}{$sectionNum}. **{$component['name']}** ({$component['component_id']}){$slotInfo}\n";
+        $instructions .= "{$indent}   → Fillable fields: {$fields}\n";
+        $instructions .= "{$indent}   → Create section #{$sectionNum} for this component\n";
+      }
+      else {
+        $instructions .= "{$indent}• {$component['name']} (non-text component, skip)\n";
+      }
+    }
+
+    $instructions .= "\n**Section Mapping Rules**:\n";
+    $instructions .= "1. Create EXACTLY {$analysis['fillable_components']} sections (one per fillable component)\n";
+    $instructions .= "2. Match section order to component order in the template\n";
+    $instructions .= "3. Section 1 fills component 1, section 2 fills component 2, etc.\n";
+    $instructions .= "4. Use the component_type that matches each template component\n";
+    $instructions .= "5. Tailor content length and style to each component's purpose\n";
+    $instructions .= "\n**CRITICAL - Section Titles**:\n";
+    $instructions .= "- Section titles MUST be human-readable headings (e.g., 'Welcome to Our Story', 'Get Started Today')\n";
+    $instructions .= "- NEVER use machine names, snake_case, or component names as titles (e.g., NOT 'hero_introduction', NOT 'cta_button_explore')\n";
+    $instructions .= "- Titles should be compelling, descriptive, and appropriate for the content\n";
+    $instructions .= "- The section 'id' field can use machine names (e.g., 'section_001'), but 'title' must be human-readable\n";
+
+    return $instructions;
   }
 
   /**
@@ -420,6 +766,9 @@ PROMPT;
    *   The system prompt.
    */
   protected function buildRefinementSystemPrompt(): string {
+    // Build component type instruction with filtered SDC components.
+    $componentTypeInstruction = $this->buildComponentTypeInstruction('');
+
     return <<<PROMPT
 You are a content planning assistant helping to refine an existing content plan based on user feedback.
 
@@ -434,7 +783,7 @@ Your response MUST be valid JSON matching this schema:
       "id": "string - Section identifier (preserve existing IDs when possible)",
       "title": "string - Section heading",
       "content": "string - Section content",
-      "component_type": "string - One of: heading, text, rich_text, image, list, quote, callout",
+      "component_type": "string - MUST be one of the exact component IDs listed below",
       "order": "integer - Display order",
       "component_config": "object - Optional configuration",
       "children": "array - Nested sections"
@@ -444,12 +793,15 @@ Your response MUST be valid JSON matching this schema:
   "affected_sections": ["array of section IDs that were modified"]
 }
 
+{$componentTypeInstruction}
+
 Guidelines:
 1. Preserve the overall structure unless changes are specifically requested
 2. Only modify sections that need to change based on the instructions
 3. Maintain section IDs for unchanged sections
 4. Create new IDs for newly added sections
 5. Provide a clear summary of what was changed
+6. CRITICAL: The component_type for each section MUST be one of the exact component IDs listed above
 PROMPT;
   }
 
@@ -467,7 +819,9 @@ PROMPT;
    *   The user message.
    */
   protected function buildRefinementUserMessage(ContentPlan $plan, string $refinementPrompt, string $contextContent = ''): string {
-    $currentPlanJson = Json::encode($plan->toArray());
+    // Build a minimal plan representation without computed fields and history.
+    $minimalPlan = $this->buildMinimalPlanForRefinement($plan);
+    $currentPlanJson = Json::encode($minimalPlan);
 
     $message = sprintf(
       "Current plan:\n%s\n\nRefinement instructions:\n%s",
@@ -482,6 +836,64 @@ PROMPT;
     $message .= "\n\nRespond with only valid JSON, no additional text.";
 
     return $message;
+  }
+
+  /**
+   * Builds a minimal plan representation for refinement to reduce token usage.
+   *
+   * Excludes refinement_history, computed totals, and truncates long content.
+   *
+   * @param \Drupal\ai_content_preparation_wizard\Model\ContentPlan $plan
+   *   The full content plan.
+   *
+   * @return array
+   *   A minimal array representation of the plan.
+   */
+  protected function buildMinimalPlanForRefinement(ContentPlan $plan): array {
+    $sections = [];
+    foreach ($plan->sections as $section) {
+      // Truncate section content for refinement (AI doesn't need full content).
+      $content = $section->content;
+      if (mb_strlen($content) > 500) {
+        $content = mb_substr($content, 0, 500) . '...';
+      }
+
+      $sectionData = [
+        'id' => $section->id,
+        'title' => $section->title,
+        'content' => $content,
+        'component_type' => $section->componentType,
+        'order' => $section->order,
+      ];
+
+      // Only include children if they exist.
+      if (!empty($section->children)) {
+        $sectionData['children'] = array_map(function ($child) {
+          $childContent = $child->content;
+          if (mb_strlen($childContent) > 300) {
+            $childContent = mb_substr($childContent, 0, 300) . '...';
+          }
+          return [
+            'id' => $child->id,
+            'title' => $child->title,
+            'content' => $childContent,
+            'component_type' => $child->componentType,
+            'order' => $child->order,
+          ];
+        }, $section->children);
+      }
+
+      $sections[] = $sectionData;
+    }
+
+    return [
+      'title' => $plan->title,
+      'summary' => $plan->summary,
+      'target_audience' => $plan->targetAudience,
+      'estimated_read_time' => $plan->estimatedReadTime,
+      'sections' => $sections,
+      // Exclude: refinement_history, total_section_count, total_word_count, status, etc.
+    ];
   }
 
   /**

@@ -12,6 +12,8 @@ use Drupal\ai_content_preparation_wizard\Model\PlanSection;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+use League\CommonMark\CommonMarkConverter;
+use League\CommonMark\Exception\CommonMarkException;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
@@ -75,6 +77,13 @@ class CanvasCreator implements CanvasCreatorInterface {
    * {@inheritdoc}
    */
   public function create(ContentPlan $plan, array $options = []): EntityInterface {
+    // If a template_id is provided in options, delegate to createFromTemplate.
+    if (!empty($options['template_id'])) {
+      $templateId = $options['template_id'];
+      unset($options['template_id']);
+      return $this->createFromTemplate($plan, $templateId, $options);
+    }
+
     try {
       // Verify Canvas module is available.
       if (!$this->isCanvasAvailable()) {
@@ -290,50 +299,51 @@ class CanvasCreator implements CanvasCreatorInterface {
     $inputs = [];
 
     // Map section content based on component type.
+    // Canvas uses "collapsed" format - just the raw value, not wrapped.
     switch ($section->componentType) {
       case 'hero':
-        $inputs['title'] = ['static' => $section->title];
-        $inputs['text'] = ['static' => $section->content];
+        $inputs['title'] = $section->title;
+        $inputs['text'] = $section->content;
         break;
 
       case 'heading':
-        $inputs['text'] = ['static' => $section->title];
+        $inputs['text'] = $section->title;
         if (isset($section->componentConfig['level'])) {
-          $inputs['level'] = ['static' => $section->componentConfig['level']];
+          $inputs['level'] = $section->componentConfig['level'];
         }
         break;
 
       case 'list':
-        $inputs['title'] = ['static' => $section->title];
+        $inputs['title'] = $section->title;
         // Parse content into list items if it contains line breaks.
         $items = $this->parseListItems($section->content);
-        $inputs['items'] = ['static' => $items];
+        $inputs['items'] = $items;
         break;
 
       case 'cta':
-        $inputs['title'] = ['static' => $section->title];
-        $inputs['text'] = ['static' => $section->content];
+        $inputs['title'] = $section->title;
+        $inputs['text'] = $section->content;
         if (isset($section->componentConfig['button_text'])) {
-          $inputs['button_text'] = ['static' => $section->componentConfig['button_text']];
+          $inputs['button_text'] = $section->componentConfig['button_text'];
         }
         if (isset($section->componentConfig['button_url'])) {
-          $inputs['button_url'] = ['static' => $section->componentConfig['button_url']];
+          $inputs['button_url'] = $section->componentConfig['button_url'];
         }
         break;
 
       case 'quote':
-        $inputs['quote'] = ['static' => $section->content];
+        $inputs['quote'] = $section->content;
         if (isset($section->componentConfig['attribution'])) {
-          $inputs['attribution'] = ['static' => $section->componentConfig['attribution']];
+          $inputs['attribution'] = $section->componentConfig['attribution'];
         }
         break;
 
       case 'image':
         if (isset($section->componentConfig['media_id'])) {
-          $inputs['image'] = ['static' => $section->componentConfig['media_id']];
+          $inputs['image'] = $section->componentConfig['media_id'];
         }
         if (!empty($section->content)) {
-          $inputs['alt'] = ['static' => $section->content];
+          $inputs['alt'] = $section->content;
         }
         break;
 
@@ -341,16 +351,16 @@ class CanvasCreator implements CanvasCreatorInterface {
       default:
         // Default text component mapping.
         if (!empty($section->title)) {
-          $inputs['title'] = ['static' => $section->title];
+          $inputs['title'] = $section->title;
         }
-        $inputs['text'] = ['static' => $section->content];
+        $inputs['text'] = $section->content;
         break;
     }
 
     // Merge any additional component config as inputs.
     foreach ($section->componentConfig as $key => $value) {
       if (!isset($inputs[$key])) {
-        $inputs[$key] = ['static' => $value];
+        $inputs[$key] = $value;
       }
     }
 
@@ -427,6 +437,469 @@ class CanvasCreator implements CanvasCreatorInterface {
     }
     catch (\Exception $e) {
       return FALSE;
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function createFromTemplate(ContentPlan $plan, string|int $templateId, array $options = []): EntityInterface {
+    try {
+      // Verify Canvas module is available.
+      if (!$this->isCanvasAvailable()) {
+        throw new CanvasCreationException(
+          'Canvas module is not available or not properly configured.',
+          $plan->title
+        );
+      }
+
+      // Load the template page.
+      $storage = $this->entityTypeManager->getStorage(self::CANVAS_PAGE_ENTITY_TYPE);
+      $templatePage = $storage->load($templateId);
+
+      if ($templatePage === NULL) {
+        throw new CanvasCreationException(
+          sprintf('Template Canvas page with ID "%s" not found.', $templateId),
+          $plan->title
+        );
+      }
+
+      // Clone the template page.
+      /** @var \Drupal\canvas\Entity\Page $newPage */
+      $newPage = $templatePage->createDuplicate();
+
+      // Update the new page with plan data and options.
+      $newPage->set('title', $options['title'] ?? $plan->title);
+      $newPage->set('status', $options['status'] ?? FALSE);
+
+      // Set description/meta if provided.
+      if (isset($options['description'])) {
+        $newPage->set('description', $options['description']);
+      }
+      elseif (!empty($plan->summary)) {
+        $newPage->set('description', $plan->summary);
+      }
+
+      // Set owner if provided.
+      if (isset($options['owner'])) {
+        $newPage->set('owner', $options['owner']);
+      }
+
+      // Set URL alias if provided, otherwise let Pathauto generate one.
+      if (isset($options['alias']) && $newPage->hasField('path') && !empty($options['alias'])) {
+        $newPage->set('path', ['alias' => $options['alias'], 'pathauto' => 0]);
+      }
+      elseif ($newPage->hasField('path')) {
+        // Enable Pathauto to generate a new alias for the cloned page.
+        $newPage->set('path', ['pathauto' => 1]);
+      }
+
+      // Get the component tree from the cloned page and fill with section content.
+      $componentTree = $newPage->getComponentTree();
+      if ($componentTree !== NULL) {
+        $filledComponents = $this->fillComponentsWithSectionContent($componentTree, $plan);
+        $this->setComponentTree($newPage, $filledComponents);
+      }
+
+      // Optimize component inputs to ensure collapsed format for validation.
+      // This is necessary because templates may have been saved before
+      // the collapsed format validation was enforced.
+      $finalTree = $newPage->getComponentTree();
+      foreach ($finalTree as $item) {
+        $item->optimizeInputs();
+      }
+
+      // Validate the entity before saving.
+      $violations = $newPage->validate();
+      if ($violations->count() > 0) {
+        $errors = [];
+        foreach ($violations as $violation) {
+          $errors[] = sprintf('%s: %s', $violation->getPropertyPath(), $violation->getMessage());
+        }
+        throw new CanvasCreationException(
+          'Canvas page validation failed.',
+          $plan->title,
+          $errors
+        );
+      }
+
+      // Save the new page.
+      $newPage->save();
+
+      $this->logger->info('Created Canvas page "@title" (ID: @id) from template @template_id and content plan @plan_id.', [
+        '@title' => $newPage->label(),
+        '@id' => $newPage->id(),
+        '@template_id' => $templateId,
+        '@plan_id' => $plan->id,
+      ]);
+
+      // Dispatch the creation event.
+      $event = new CanvasPageCreatedEvent($newPage, $plan);
+      $this->eventDispatcher->dispatch($event, CanvasPageCreatedEvent::EVENT_NAME);
+
+      return $newPage;
+    }
+    catch (CanvasCreationException $e) {
+      // Re-throw CanvasCreationException as-is.
+      throw $e;
+    }
+    catch (\Exception $e) {
+      $this->logger->error('Failed to create Canvas page from template @template_id and content plan @plan_id: @message', [
+        '@template_id' => $templateId,
+        '@plan_id' => $plan->id,
+        '@message' => $e->getMessage(),
+      ]);
+
+      throw new CanvasCreationException(
+        sprintf('Failed to create Canvas page from template: %s', $e->getMessage()),
+        $plan->title,
+        NULL,
+        0,
+        $e
+      );
+    }
+  }
+
+  /**
+   * Fills component tree with content from plan sections.
+   *
+   * Iterates through the component tree and fills text-based input fields
+   * with content from plan sections. Sections are matched to components
+   * in order of their appearance.
+   *
+   * @param \Drupal\canvas\Plugin\Field\FieldType\ComponentTreeItemList $componentTree
+   *   The component tree from the template.
+   * @param \Drupal\ai_content_preparation_wizard\Model\ContentPlan $plan
+   *   The content plan with sections to fill.
+   *
+   * @return array<int, array<string, mixed>>
+   *   The modified component tree data with filled content.
+   */
+  protected function fillComponentsWithSectionContent($componentTree, ContentPlan $plan): array {
+    $components = $componentTree->getValue();
+    $sections = $plan->sections;
+
+    // Build a flat list of sections for sequential matching.
+    $flatSections = [];
+    foreach ($sections as $section) {
+      foreach ($section->flatten() as $flatSection) {
+        $flatSections[] = $flatSection;
+      }
+    }
+
+    // Index for tracking which section to use next.
+    $sectionIndex = 0;
+    $totalSections = count($flatSections);
+
+    // Process each component in the tree.
+    foreach ($components as $key => &$component) {
+      // Skip components without inputs.
+      if (!isset($component['inputs'])) {
+        continue;
+      }
+
+      // Decode JSON inputs if stored as string.
+      $inputs = $component['inputs'];
+      if (is_string($inputs)) {
+        $inputs = json_decode($inputs, TRUE) ?? [];
+      }
+      if (!is_array($inputs)) {
+        continue;
+      }
+
+      $componentId = $component['component_id'] ?? '';
+
+      // Check if this component can receive text content.
+      if (!$this->isTextBasedComponent($componentId, $inputs)) {
+        continue;
+      }
+
+      // Get the next available section.
+      if ($sectionIndex >= $totalSections) {
+        // No more sections available; preserve existing content.
+        continue;
+      }
+
+      $section = $flatSections[$sectionIndex];
+      $sectionIndex++;
+
+      // Fill the component inputs with section content.
+      $filledInputs = $this->fillComponentInputsFromSection($inputs, $section, $componentId);
+
+      // Re-encode as JSON string if it was originally a string.
+      if (is_string($component['inputs'])) {
+        $component['inputs'] = json_encode($filledInputs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+      }
+      else {
+        $component['inputs'] = $filledInputs;
+      }
+
+      // Update label if section has a title and component supports labels.
+      if (!empty($section->title)) {
+        $component['label'] = $section->title;
+      }
+
+      // Generate new UUID for the component to avoid duplicates.
+      $oldUuid = $component['uuid'] ?? '';
+      $newUuid = $this->uuid->generate();
+      $component['uuid'] = $newUuid;
+
+      // Update parent_uuid references in child components.
+      $this->updateParentReferences($components, $oldUuid, $newUuid);
+    }
+
+    return $components;
+  }
+
+  /**
+   * Checks if a component is text-based and can receive content.
+   *
+   * @param string $componentId
+   *   The component ID.
+   * @param array<string, mixed> $inputs
+   *   The component inputs.
+   *
+   * @return bool
+   *   TRUE if the component can receive text content.
+   */
+  protected function isTextBasedComponent(string $componentId, array $inputs): bool {
+    // Check for common text input fields.
+    $textInputFields = ['text', 'content', 'body', 'description', 'paragraph', 'quote', 'title', 'heading', 'heading_text', 'label', 'name'];
+
+    foreach ($textInputFields as $field) {
+      if (isset($inputs[$field])) {
+        return TRUE;
+      }
+    }
+
+    // Check component ID for text-related components.
+    $textComponentPatterns = [
+      'text', 'paragraph', 'heading', 'title', 'quote', 'blockquote',
+      'rich_text', 'wysiwyg', 'content', 'body', 'hero', 'cta',
+      'card', 'banner', 'callout', 'alert', 'message',
+    ];
+
+    $componentIdLower = strtolower($componentId);
+    foreach ($textComponentPatterns as $pattern) {
+      if (str_contains($componentIdLower, $pattern)) {
+        return TRUE;
+      }
+    }
+
+    return FALSE;
+  }
+
+  /**
+   * Fills component inputs from a plan section.
+   *
+   * @param array<string, mixed> $inputs
+   *   The existing component inputs.
+   * @param \Drupal\ai_content_preparation_wizard\Model\PlanSection $section
+   *   The plan section with content.
+   * @param string $componentId
+   *   The component ID for context.
+   *
+   * @return array<string, mixed>
+   *   The filled component inputs.
+   */
+  protected function fillComponentInputsFromSection(array $inputs, PlanSection $section, string $componentId): array {
+    $filledInputs = $inputs;
+    $contentFilled = FALSE;
+    $titleFilled = FALSE;
+
+    // Primary text content fields to fill with section content (long text).
+    $contentFields = ['text', 'content', 'body', 'description', 'paragraph', 'quote'];
+
+    // Title/heading fields to fill with section title (short text).
+    $titleFields = ['title', 'heading', 'heading_text', 'name', 'label'];
+
+    // Fill title fields first (they often need the title).
+    foreach ($titleFields as $field) {
+      if (isset($inputs[$field]) && !$titleFilled && !empty($section->title)) {
+        $filledInputs[$field] = $this->fillFieldValue($inputs[$field], $section->title);
+        $titleFilled = TRUE;
+      }
+    }
+
+    // Fill content fields with body content (converted from markdown to HTML).
+    foreach ($contentFields as $field) {
+      if (isset($inputs[$field]) && !$contentFilled && !empty($section->content)) {
+        $htmlContent = $this->convertMarkdownToHtml($section->content);
+        $filledInputs[$field] = $this->fillFieldValue($inputs[$field], $htmlContent);
+        $contentFilled = TRUE;
+      }
+    }
+
+    // If no content field was found but we have a title field with content, use it.
+    // This handles components that only have a heading_text or title field.
+    if (!$contentFilled && !$titleFilled && !empty($section->content)) {
+      // Only try known safe text fields - do NOT use fallback heuristics
+      // as they can match config fields like 'align', 'flex_position', etc.
+      foreach ($titleFields as $field) {
+        if (isset($inputs[$field])) {
+          $filledInputs[$field] = $this->fillFieldValue($inputs[$field], $section->title ?: $section->content);
+          break;
+        }
+      }
+    }
+
+    return $filledInputs;
+  }
+
+  /**
+   * Fills a field value, preserving existing structure if present.
+   *
+   * Some fields (like 'text') have complex structures like:
+   * {"value": "content", "format": "canvas_html_block"}
+   * This method preserves that structure and only updates the value.
+   *
+   * @param mixed $existingValue
+   *   The existing field value.
+   * @param string $newContent
+   *   The new content to set.
+   *
+   * @return mixed
+   *   The updated field value.
+   */
+  protected function fillFieldValue(mixed $existingValue, string $newContent): mixed {
+    // If existing value is an array with 'value' key, preserve structure.
+    if (is_array($existingValue) && array_key_exists('value', $existingValue)) {
+      $existingValue['value'] = $newContent;
+      return $existingValue;
+    }
+
+    // Otherwise, just return the new content directly (collapsed format).
+    return $newContent;
+  }
+
+  /**
+   * Returns a value in collapsed static format for Canvas component inputs.
+   *
+   * Canvas uses "collapsed" format for static values, which means just the
+   * raw value without any wrapper. The expanded format ['static' => $value]
+   * is only used internally and must be collapsed before saving.
+   *
+   * @param string $value
+   *   The value to return.
+   *
+   * @return string
+   *   The value in collapsed format (just the raw value).
+   */
+  protected function wrapStaticValue(string $value): string {
+    // Canvas expects collapsed format - just the raw value, not wrapped.
+    return $value;
+  }
+
+  /**
+   * Checks if an input is likely a text input based on key name and value.
+   *
+   * @param string $key
+   *   The input key name.
+   * @param mixed $value
+   *   The input value.
+   *
+   * @return bool
+   *   TRUE if this is likely a text input.
+   */
+  protected function isLikelyTextInput(string $key, mixed $value): bool {
+    // Skip inputs that are likely not text.
+    $nonTextKeys = [
+      'image', 'media', 'file', 'video', 'audio', 'icon',
+      'link', 'url', 'href', 'src',
+      'color', 'background',
+      'enabled', 'disabled', 'visible', 'hidden',
+      'count', 'number', 'amount', 'size', 'width', 'height',
+      'id', 'class', 'style',
+    ];
+
+    $keyLower = strtolower($key);
+    foreach ($nonTextKeys as $nonText) {
+      if (str_contains($keyLower, $nonText)) {
+        return FALSE;
+      }
+    }
+
+    // Check if the existing value structure looks like text.
+    // Canvas uses collapsed format - strings are stored directly.
+    if (is_string($value)) {
+      return TRUE;
+    }
+
+    // Also handle expanded format (legacy or dynamic sources).
+    if (is_array($value) && isset($value['static']) && is_string($value['static'])) {
+      return TRUE;
+    }
+
+    return FALSE;
+  }
+
+  /**
+   * Updates parent_uuid references after UUID regeneration.
+   *
+   * @param array<int, array<string, mixed>> &$components
+   *   The component tree (passed by reference).
+   * @param string $oldUuid
+   *   The old UUID to replace.
+   * @param string $newUuid
+   *   The new UUID to use.
+   */
+  protected function updateParentReferences(array &$components, string $oldUuid, string $newUuid): void {
+    foreach ($components as &$component) {
+      if (isset($component['parent_uuid']) && $component['parent_uuid'] === $oldUuid) {
+        $component['parent_uuid'] = $newUuid;
+      }
+    }
+  }
+
+  /**
+   * Converts markdown content to HTML.
+   *
+   * @param string $markdown
+   *   The markdown content to convert.
+   *
+   * @return string
+   *   The HTML output.
+   */
+  protected function convertMarkdownToHtml(string $markdown): string {
+    // Return empty string if no content.
+    if (empty(trim($markdown))) {
+      return '';
+    }
+
+    // Check if CommonMark converter is available.
+    if (!class_exists(CommonMarkConverter::class)) {
+      $this->logger->warning('CommonMark converter not available. Returning raw markdown.');
+      return nl2br(htmlspecialchars($markdown, ENT_QUOTES, 'UTF-8'));
+    }
+
+    try {
+      $converter = new CommonMarkConverter([
+        'html_input' => 'strip',
+        'allow_unsafe_links' => FALSE,
+        'max_nesting_level' => 10,
+      ]);
+
+      $html = (string) $converter->convert($markdown);
+      $html = trim($html);
+
+      // Strip outer <p> tags from simple single-paragraph content.
+      // This prevents fields that don't render HTML from showing raw tags.
+      if (preg_match('/^<p>(.+)<\/p>$/s', $html, $matches)) {
+        // Only strip if there's no other HTML inside (simple paragraph).
+        $inner = $matches[1];
+        if (!preg_match('/<[a-z][\s\S]*>/i', $inner)) {
+          return $inner;
+        }
+      }
+
+      return $html;
+    }
+    catch (CommonMarkException $e) {
+      $this->logger->error('Markdown conversion failed: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+      // Fall back to simple HTML escaping with newlines preserved.
+      return nl2br(htmlspecialchars($markdown, ENT_QUOTES, 'UTF-8'));
     }
   }
 

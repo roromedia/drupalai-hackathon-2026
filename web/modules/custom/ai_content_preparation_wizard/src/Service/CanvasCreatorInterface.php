@@ -26,6 +26,7 @@ interface CanvasCreatorInterface {
    *   - 'status': (bool) Publication status (default: FALSE).
    *   - 'owner': (int) User ID of the page owner.
    *   - 'description': (string) Meta description override.
+   *   - 'template_id': (string|int) ID of a Canvas page to use as template.
    *
    * @return \Drupal\Core\Entity\EntityInterface
    *   The created and saved Canvas page entity.
@@ -34,6 +35,33 @@ interface CanvasCreatorInterface {
    *   When page creation fails due to validation or entity save errors.
    */
   public function create(ContentPlan $plan, array $options = []): EntityInterface;
+
+  /**
+   * Creates a Canvas page by cloning a template and filling with plan content.
+   *
+   * This method duplicates an existing Canvas page, preserving its component
+   * structure, and then fills text-based components with content from the
+   * content plan sections.
+   *
+   * @param \Drupal\ai_content_preparation_wizard\Model\ContentPlan $plan
+   *   The approved content plan containing section content.
+   * @param string|int $templateId
+   *   The ID of the Canvas page to use as template.
+   * @param array<string, mixed> $options
+   *   Additional options for page creation:
+   *   - 'alias': (string) URL alias for the page.
+   *   - 'status': (bool) Publication status (default: FALSE).
+   *   - 'owner': (int) User ID of the page owner.
+   *   - 'description': (string) Meta description override.
+   *
+   * @return \Drupal\Core\Entity\EntityInterface
+   *   The created and saved Canvas page entity.
+   *
+   * @throws \Drupal\ai_content_preparation_wizard\Exception\CanvasCreationException
+   *   When page creation fails due to validation, entity save errors,
+   *   or when the template cannot be loaded.
+   */
+  public function createFromTemplate(ContentPlan $plan, string|int $templateId, array $options = []): EntityInterface;
 
   /**
    * Maps content plan sections to Canvas component structures.

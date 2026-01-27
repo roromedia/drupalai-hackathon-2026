@@ -29,3 +29,13 @@ ai_content_preparation_wizard.regenerate_plan:
     _permission: 'access content preparation wizard'
   options:
     _admin_route: TRUE
+
+# AJAX endpoint for async plan generation (called from Step 2).
+ai_content_preparation_wizard.generate_plan_async:
+  path: '/admin/content/preparation-wizard/generate-plan'
+  defaults:
+    _controller: '\Drupal\ai_content_preparation_wizard\Controller\WizardAjaxController::generatePlanAsync'
+  requirements:
+    _permission: 'access content preparation wizard'
+  options:
+    _admin_route: TRUE

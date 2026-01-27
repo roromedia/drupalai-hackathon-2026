@@ -5,8 +5,28 @@ wizard:
       css/content-preparation-wizard.css: {}
   js:
     js/content-preparation-wizard.js: {}
+    js/async-plan.js: {}
   dependencies:
     - core/drupal
     - core/once
     - core/drupalSettings
     - core/jquery
+
+document-tabs:
+  version: VERSION
+  css:
+    component:
+      css/document-tabs.css: {}
+  js:
+    js/document-tabs.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
+
+async-plan:
+  version: VERSION
+  js:
+    js/async-plan.js: {}
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
