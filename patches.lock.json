@@ -1,5 +1,5 @@
 {
-    "_hash": "d79639641d4d0fed6a424950536f5b0c3d65a4d1852b28c9f684501f3a17b796",
+    "_hash": "96f0b507786a02f6bbf29db43424724bcc60b23aa6c8cb49d5c4ed862fd49f5b",
     "patches": {
         "drupal/core": [
             {
@@ -19,6 +19,16 @@
                 "description": "#3568950: Let the agent know that the tools were succesful",
                 "url": "https://git.drupalcode.org/project/canvas/-/merge_requests/493.patch",
                 "sha256": "e0fd9587ebcd9dc70843374473a1026c2c8cccece310de558959b3132822ca9d",
+                "depth": 1,
+                "extra": {
+                    "provenance": "root"
+                }
+            },
+            {
+                "package": "drupal/canvas",
+                "description": "https://www.drupal.org/project/canvas/issues/3556590",
+                "url": "https://git.drupalcode.org/project/canvas/-/merge_requests/444.patch",
+                "sha256": "52ffcbef44058fe5e53e39e5dfdd013faa4d031462bd14a6d2664bf513dd2b49",
                 "depth": 1,
                 "extra": {
                     "provenance": "root"
