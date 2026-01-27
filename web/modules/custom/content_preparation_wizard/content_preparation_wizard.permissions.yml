@@ -1,0 +1,12 @@
+access content preparation wizard:
+  title: 'Use the Content Preparation Wizard'
+  description: 'Access the content preparation wizard to upload documents and create content plans.'
+
+administer content preparation wizard:
+  title: 'Administer Content Preparation Wizard'
+  description: 'Configure settings for the Content Preparation Wizard module.'
+  restrict access: true
+
+create canvas from wizard:
+  title: 'Create Canvas pages from wizard'
+  description: 'Create Canvas pages directly from the Content Preparation Wizard.'

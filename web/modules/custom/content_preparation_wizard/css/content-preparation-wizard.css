@@ -1,0 +1,40 @@
+/**
+ * @file
+ * Styles for the Content Preparation Wizard.
+ */
+
+.content-preparation-wizard {
+  max-width: 800px;
+}
+
+.content-preparation-wizard__steps {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  padding: 0;
+  list-style: none;
+}
+
+.content-preparation-wizard__step {
+  flex: 1;
+  text-align: center;
+  padding: 1rem;
+  background-color: #f5f5f5;
+  border-bottom: 3px solid #ccc;
+}
+
+.content-preparation-wizard__step--active {
+  background-color: #e3f2fd;
+  border-bottom-color: #1976d2;
+}
+
+.content-preparation-wizard__step--completed {
+  background-color: #e8f5e9;
+  border-bottom-color: #4caf50;
+}
+
+.content-preparation-wizard__content {
+  padding: 1.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
