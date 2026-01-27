@@ -17,6 +17,7 @@ use Drupal\ai_content_preparation_wizard\Model\PlanSection;
 use Drupal\ai_content_preparation_wizard\Model\ProcessedDocument;
 use Drupal\ai_content_preparation_wizard\Model\RefinementEntry;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Psr\Log\LoggerInterface;
 
@@ -65,6 +66,7 @@ class ContentPlanGenerator implements ContentPlanGeneratorInterface {
     protected readonly LoggerChannelFactoryInterface $loggerFactory,
     protected readonly UuidInterface $uuid,
     protected readonly TimeInterface $time,
+    protected readonly EntityTypeManagerInterface $entityTypeManager,
   ) {
     $this->logger = $this->loggerFactory->get('ai_content_preparation_wizard');
   }
@@ -285,42 +287,34 @@ class ContentPlanGenerator implements ContentPlanGeneratorInterface {
    *   The created AIContext object.
    */
   protected function createContextFromId(string $contextId): AIContext {
-    // Define context details for known context types.
-    $contextDefinitions = [
-      'site_structure' => [
-        'label' => 'Site Structure',
-        'content' => 'Consider the overall site structure and navigation hierarchy when organizing content. Ensure the content fits naturally within the site architecture.',
-        'priority' => 80,
-      ],
-      'brand_guidelines' => [
-        'label' => 'Brand Guidelines',
-        'content' => 'Follow brand voice and tone guidelines. Maintain consistency with the organization\'s communication style and visual identity.',
-        'priority' => 90,
-      ],
-      'seo_requirements' => [
-        'label' => 'SEO Requirements',
-        'content' => 'Optimize content for search engines. Include relevant keywords naturally, use proper heading hierarchy, and create descriptive meta content.',
-        'priority' => 70,
-      ],
-      'accessibility_standards' => [
-        'label' => 'Accessibility Standards',
-        'content' => 'Ensure content meets WCAG accessibility guidelines. Use clear language, proper semantic structure, and consider assistive technology users.',
-        'priority' => 85,
-      ],
-    ];
+    // Try to load from ai_context entity storage.
+    try {
+      $contextStorage = $this->entityTypeManager->getStorage('ai_context');
+      $entity = $contextStorage->load($contextId);
 
-    // Get definition or create a generic one.
-    $definition = $contextDefinitions[$contextId] ?? [
-      'label' => ucwords(str_replace('_', ' ', $contextId)),
-      'content' => sprintf('Apply %s considerations when generating content.', str_replace('_', ' ', $contextId)),
-      'priority' => 50,
-    ];
+      if ($entity !== NULL) {
+        return AIContext::create(
+          type: $contextId,
+          label: $entity->label(),
+          content: $entity->get('content') ?? '',
+          priority: 50,
+          metadata: ['tags' => $entity->get('tags') ?? []],
+        );
+      }
+    }
+    catch (\Exception $e) {
+      $this->logger->warning('Failed to load ai_context entity @id: @message', [
+        '@id' => $contextId,
+        '@message' => $e->getMessage(),
+      ]);
+    }
 
+    // Fallback for unknown context IDs.
     return AIContext::create(
       type: $contextId,
-      label: $definition['label'],
-      content: $definition['content'],
-      priority: $definition['priority'],
+      label: ucwords(str_replace('_', ' ', $contextId)),
+      content: sprintf('Apply %s considerations when generating content.', str_replace('_', ' ', $contextId)),
+      priority: 50,
     );
   }
 

@@ -164,17 +164,27 @@ final class ContentPreparationWizardForm extends FormBase {
       '#required' => TRUE,
     ];
 
+    // Load AI context entities dynamically.
+    $contextOptions = [];
+    try {
+      $contextStorage = $this->entityTypeManager->getStorage('ai_context');
+      $contexts = $contextStorage->loadMultiple();
+      foreach ($contexts as $context) {
+        $contextOptions[$context->id()] = $context->label();
+      }
+    }
+    catch (\Exception $e) {
+      // Fallback if ai_context module is not available.
+      $this->messenger()->addWarning($this->t('AI Contexts could not be loaded.'));
+    }
+
     $form['step1']['ai_contexts'] = [
       '#type' => 'checkboxes',
       '#title' => $this->t('AI Contexts'),
       '#description' => $this->t('Select contexts to apply during content planning.'),
-      '#options' => [
-        'site_structure' => $this->t('Site structure'),
-        'brand_guidelines' => $this->t('Brand guidelines'),
-        'seo_requirements' => $this->t('SEO requirements'),
-        'accessibility_standards' => $this->t('Accessibility standards'),
-      ],
-      '#default_value' => ['site_structure', 'brand_guidelines'],
+      '#options' => $contextOptions,
+      '#default_value' => [],
+      '#access' => !empty($contextOptions),
     ];
 
     $form['step1']['ai_template'] = [

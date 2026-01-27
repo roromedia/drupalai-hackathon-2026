@@ -44,3 +44,4 @@ services:
       - '@logger.factory'
       - '@uuid'
       - '@datetime.time'
+      - '@entity_type.manager'
