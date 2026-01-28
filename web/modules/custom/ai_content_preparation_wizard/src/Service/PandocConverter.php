@@ -287,7 +287,66 @@ class PandocConverter implements PandocConverterInterface {
    */
   public function getPandocPath(): string {
     $config = $this->configFactory->get('ai_content_preparation_wizard.settings');
+
+    // First try the new document_processors config.
+    $documentProcessors = $config->get('document_processors');
+    if (!empty($documentProcessors)) {
+      // Look for a line matching pandoc-supported extensions (docx, odt, rtf).
+      $path = $this->getExecutableForExtension($documentProcessors, 'docx');
+      if ($path !== NULL) {
+        return $path;
+      }
+    }
+
+    // Fall back to legacy pandoc_path config.
     return $config->get('pandoc_path') ?: 'pandoc';
+  }
+
+  /**
+   * Gets the executable path for a given extension from document_processors.
+   *
+   * @param string $documentProcessors
+   *   The document_processors config value (multi-line string).
+   * @param string $extension
+   *   The file extension to look up.
+   *
+   * @return string|null
+   *   The executable path or NULL if not found.
+   */
+  protected function getExecutableForExtension(string $documentProcessors, string $extension): ?string {
+    $lines = preg_split('/\r\n|\r|\n/', $documentProcessors);
+
+    foreach ($lines as $line) {
+      $line = trim($line);
+
+      // Skip empty lines and comments.
+      if (empty($line) || str_starts_with($line, '#')) {
+        continue;
+      }
+
+      // Parse format: extensions|path.
+      if (!str_contains($line, '|')) {
+        continue;
+      }
+
+      [$extensions, $path] = explode('|', $line, 2);
+      $extensions = trim($extensions);
+      $path = trim($path);
+
+      if (empty($extensions) || empty($path)) {
+        continue;
+      }
+
+      // Handle multiple extensions separated by comma.
+      $extList = array_map('trim', explode(',', $extensions));
+      $extList = array_map('strtolower', $extList);
+
+      if (in_array(strtolower($extension), $extList, TRUE)) {
+        return $path;
+      }
+    }
+
+    return NULL;
   }
 
 }

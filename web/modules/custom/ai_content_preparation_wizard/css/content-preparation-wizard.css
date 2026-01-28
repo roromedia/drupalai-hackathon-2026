@@ -245,9 +245,12 @@
   cursor: pointer;
   font-weight: 500;
   font-size: 0.875rem;
+  line-height: 1.4;
   transition: background-color 0.2s ease;
   position: relative;
   list-style: none;
+  display: flex;
+  align-items: center;
 }
 
 /* Hide default marker */
@@ -260,12 +263,13 @@
 
 /* Custom caret using pseudo-element */
 .content-preparation-wizard .plan-sections-list details summary::before {
-  content: "\25B6";
+  content: "\203A";
   position: absolute;
-  left: 0.875rem;
+  left: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 0.625rem;
+  font-size: 1rem;
+  font-weight: 400;
   color: #6c757d;
   transition: transform 0.2s ease;
 }
@@ -487,6 +491,99 @@
 .content-preparation-wizard .wizard-step {
   display: flex !important;
   visibility: visible !important;
+}
+
+/* Reinforce wizard step indicator - standalone selectors matching actual markup */
+/* Target: .wizard-steps.form-wrapper with #edit-step-indicator */
+#edit-step-indicator.wizard-steps,
+.wizard-steps.form-wrapper {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  margin-bottom: 2rem !important;
+  padding: 1.5rem 1rem !important;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+  list-style: none !important;
+}
+
+#edit-step-indicator .wizard-step,
+.wizard-steps.form-wrapper .wizard-step {
+  display: flex !important;
+  align-items: center !important;
+  padding: 0.75rem 1.5rem !important;
+  position: relative !important;
+  color: #6c757d !important;
+  font-weight: 500 !important;
+}
+
+#edit-step-indicator .wizard-step:not(:last-child),
+.wizard-steps.form-wrapper .wizard-step:not(:last-child) {
+  margin-right: 40px !important;
+}
+
+#edit-step-indicator .wizard-step:not(:last-child)::after,
+.wizard-steps.form-wrapper .wizard-step:not(:last-child)::after {
+  content: "" !important;
+  position: absolute !important;
+  right: -30px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 20px !important;
+  height: 2px !important;
+  background-color: #dee2e6 !important;
+}
+
+#edit-step-indicator .wizard-step .step-number,
+.wizard-steps.form-wrapper .wizard-step .step-number {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  background-color: #dee2e6 !important;
+  color: #6c757d !important;
+  font-weight: 600 !important;
+  font-size: 1rem !important;
+  margin-right: 0.75rem !important;
+}
+
+#edit-step-indicator .wizard-step .step-label,
+.wizard-steps.form-wrapper .wizard-step .step-label {
+  font-size: 0.9rem !important;
+  white-space: nowrap !important;
+}
+
+/* Active step */
+#edit-step-indicator .wizard-step.active,
+.wizard-steps.form-wrapper .wizard-step.active {
+  color: #0d6efd !important;
+}
+
+#edit-step-indicator .wizard-step.active .step-number,
+.wizard-steps.form-wrapper .wizard-step.active .step-number {
+  background-color: #0d6efd !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.35) !important;
+}
+
+/* Completed step */
+#edit-step-indicator .wizard-step.completed,
+.wizard-steps.form-wrapper .wizard-step.completed {
+  color: #198754 !important;
+}
+
+#edit-step-indicator .wizard-step.completed .step-number,
+.wizard-steps.form-wrapper .wizard-step.completed .step-number {
+  background-color: #198754 !important;
+  color: #fff !important;
+}
+
+#edit-step-indicator .wizard-step.completed:not(:last-child)::after,
+.wizard-steps.form-wrapper .wizard-step.completed:not(:last-child)::after {
+  background-color: #198754 !important;
 }
 
 /* ==========================================================================
@@ -859,6 +956,21 @@
   animation: pulse-opacity 2s ease-in-out infinite;
 }
 
+/* Loading model info */
+.content-preparation-wizard .plan-loading-model {
+  font-size: 0.8125rem;
+  color: #495057;
+  margin-bottom: 0.75rem;
+  padding: 0.375rem 0.75rem;
+  background: rgba(13, 110, 253, 0.08);
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.content-preparation-wizard .plan-loading-model strong {
+  color: #0d6efd;
+}
+
 @keyframes pulse-opacity {
   0%,
   100% {
@@ -930,4 +1042,148 @@
   font-weight: 500;
   font-size: 0.8125rem;
   color: #495057;
+}
+
+/* ==========================================================================
+   Content Type Badges and Webpage Styling (Step 2)
+   ========================================================================== */
+
+/* Content section headers */
+.content-preparation-wizard .content-section-header {
+  margin: 1rem 0 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background-color: #f8f9fa;
+  border-left: 3px solid #6c757d;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #495057;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.content-preparation-wizard .content-section-header.documents-header {
+  border-left-color: #0d6efd;
+  color: #0d6efd;
+}
+
+.content-preparation-wizard .content-section-header.webpages-header {
+  border-left-color: #198754;
+  color: #198754;
+}
+
+/* Content type badges */
+.content-preparation-wizard .content-type-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  margin-bottom: 0.75rem;
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.content-preparation-wizard .content-type-badge.content-type-document {
+  background-color: #e7f1ff;
+  color: #0d6efd;
+  border: 1px solid rgba(13, 110, 253, 0.2);
+}
+
+.content-preparation-wizard .content-type-badge.content-type-webpage {
+  background-color: #d1e7dd;
+  color: #198754;
+  border: 1px solid rgba(25, 135, 84, 0.2);
+}
+
+/* Webpage source URL display */
+.content-preparation-wizard .webpage-source-url {
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  color: #495057;
+  word-break: break-all;
+}
+
+.content-preparation-wizard .webpage-source-url a {
+  color: #0d6efd;
+  text-decoration: none;
+}
+
+.content-preparation-wizard .webpage-source-url a:hover {
+  text-decoration: underline;
+}
+
+/* Webpage content styling */
+.content-preparation-wizard .markdown-preview-content.webpage-content {
+  border-top: 2px solid #198754;
+}
+
+/* Tab panel styling for different content types */
+.content-preparation-wizard .document-tab-panel.document-type-file {
+  border-left: 3px solid #0d6efd;
+}
+
+.content-preparation-wizard .document-tab-panel.document-type-webpage {
+  border-left: 3px solid #198754;
+}
+
+/* Vertical tabs menu item styling by content type */
+/* Style based on the details element's data-content-type attribute */
+.content-preparation-wizard .markdown-preview-panel details[data-content-type="document"] > summary::before,
+.content-preparation-wizard .markdown-preview-panel .vertical-tabs__menu-item.document-type-file a::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 0.5rem;
+  background-color: #0d6efd;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.content-preparation-wizard .markdown-preview-panel details[data-content-type="webpage"] > summary::before,
+.content-preparation-wizard .markdown-preview-panel .vertical-tabs__menu-item.document-type-webpage a::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 0.5rem;
+  background-color: #198754;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Vertical tabs menu items - add colored indicator dot */
+.content-preparation-wizard .markdown-preview-panel .vertical-tabs__menu-item a {
+  display: flex;
+  align-items: center;
+}
+
+/* Color-coded left border for vertical tab menu items */
+.content-preparation-wizard .markdown-preview-panel .vertical-tabs details.document-type-file,
+.content-preparation-wizard .markdown-preview-panel details[data-content-type="document"] {
+  border-left: 3px solid #0d6efd;
+}
+
+.content-preparation-wizard .markdown-preview-panel .vertical-tabs details.document-type-webpage,
+.content-preparation-wizard .markdown-preview-panel details[data-content-type="webpage"] {
+  border-left: 3px solid #198754;
+}
+
+/* Webpage processing errors */
+.content-preparation-wizard .messages--warning {
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  color: #856404;
+  font-size: 0.875rem;
+}
+
+.content-preparation-wizard .messages--warning p {
+  margin: 0.25rem 0;
 }

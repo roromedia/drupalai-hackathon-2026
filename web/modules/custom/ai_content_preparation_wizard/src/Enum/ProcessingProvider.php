@@ -15,6 +15,7 @@ enum ProcessingProvider: string {
   case PHPWORD = 'phpword';
   case AI_VISION = 'ai_vision';
   case PDFTOTEXT = 'pdftotext';
+  case WEBPAGE = 'webpage';
   case CUSTOM = 'custom';
 
   /**
@@ -28,6 +29,7 @@ enum ProcessingProvider: string {
       self::PHPWORD => 'PHPWord',
       self::AI_VISION => 'AI Vision OCR',
       self::PDFTOTEXT => 'pdftotext (Poppler)',
+      self::WEBPAGE => 'Web Page Processor',
       self::CUSTOM => 'Custom Processor',
     };
   }
@@ -43,6 +45,7 @@ enum ProcessingProvider: string {
       self::PHPWORD => 'PHP library for Word document processing',
       self::AI_VISION => 'AI-powered OCR for scanned documents',
       self::PDFTOTEXT => 'Poppler pdftotext CLI tool for PDF text extraction',
+      self::WEBPAGE => 'HTTP client for fetching and processing web pages',
       self::CUSTOM => 'Custom implementation provided by a plugin',
     };
   }
@@ -58,6 +61,7 @@ enum ProcessingProvider: string {
       self::PHPWORD => FALSE,
       self::AI_VISION => TRUE,
       self::PDFTOTEXT => TRUE,
+      self::WEBPAGE => FALSE,
       self::CUSTOM => FALSE,
     };
   }

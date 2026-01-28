@@ -2,9 +2,21 @@ ai_content_preparation_wizard.settings:
   type: config_object
   label: 'Content Preparation Wizard settings'
   mapping:
+    document_processors:
+      type: string
+      label: 'Document processor mappings'
+    enable_logging:
+      type: boolean
+      label: 'Enable document processing logging'
     pandoc_path:
       type: string
-      label: 'Pandoc executable path'
+      label: 'Pandoc executable path (deprecated)'
+    pdftotext_path:
+      type: string
+      label: 'pdftotext executable path (deprecated)'
+    pdfinfo_path:
+      type: string
+      label: 'pdfinfo executable path (deprecated)'
     max_file_size:
       type: integer
       label: 'Maximum file size in bytes'
@@ -29,3 +41,15 @@ ai_content_preparation_wizard.settings:
     max_refinement_iterations:
       type: integer
       label: 'Maximum refinement iterations'
+    webpage_processor_mode:
+      type: string
+      label: 'Webpage processor mode'
+    webpage_processor_binary:
+      type: string
+      label: 'Webpage processor binary path'
+    webpage_processor_arguments:
+      type: string
+      label: 'Webpage processor arguments'
+    webpage_processor_timeout:
+      type: integer
+      label: 'Webpage processor timeout'

@@ -46,3 +46,9 @@ services:
       - '@datetime.time'
       - '@entity_type.manager'
       - '@canvas_ai.page_builder_helper'
+
+  ai_content_preparation_wizard.webpage_processor:
+    class: Drupal\ai_content_preparation_wizard\Service\WebpageProcessor
+    arguments:
+      - '@http_client'
+      - '@logger.factory'

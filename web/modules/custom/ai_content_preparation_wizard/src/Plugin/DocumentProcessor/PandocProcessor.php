@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\ai_content_preparation_wizard\Plugin\DocumentProcessor;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
@@ -41,6 +42,13 @@ class PandocProcessor extends DocumentProcessorBase {
   protected PandocConverterInterface $pandocConverter;
 
   /**
+   * The config factory service.
+   *
+   * @var \Drupal\Core\Config\ConfigFactoryInterface
+   */
+  protected ConfigFactoryInterface $configFactory;
+
+  /**
    * Mapping of file extensions to Pandoc format identifiers.
    *
    * @var array
@@ -67,6 +75,8 @@ class PandocProcessor extends DocumentProcessorBase {
    *   The logger channel factory.
    * @param \Drupal\ai_content_preparation_wizard\Service\PandocConverterInterface $pandoc_converter
    *   The Pandoc converter service.
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
+   *   The config factory service.
    */
   public function __construct(
     array $configuration,
@@ -75,9 +85,11 @@ class PandocProcessor extends DocumentProcessorBase {
     FileSystemInterface $file_system,
     LoggerChannelFactoryInterface $logger_factory,
     PandocConverterInterface $pandoc_converter,
+    ConfigFactoryInterface $config_factory,
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition, $file_system, $logger_factory);
     $this->pandocConverter = $pandoc_converter;
+    $this->configFactory = $config_factory;
   }
 
   /**
@@ -96,6 +108,7 @@ class PandocProcessor extends DocumentProcessorBase {
       $container->get('file_system'),
       $container->get('logger.factory'),
       $container->get('ai_content_preparation_wizard.pandoc_converter'),
+      $container->get('config.factory'),
     );
   }
 
@@ -172,9 +185,10 @@ class PandocProcessor extends DocumentProcessorBase {
       // Convert document to markdown.
       $markdownContent = $this->pandocConverter->convertToMarkdown($realPath, $format);
 
-      // Debug logging disabled for performance.
-      // Uncomment the following line to enable markdown logging:
-      // $this->saveMarkdownLog($file, $markdownContent);
+      // Save markdown log if logging is enabled in configuration.
+      if ($this->configFactory->get('ai_content_preparation_wizard.settings')->get('enable_logging')) {
+        $this->saveMarkdownLog($file, $markdownContent);
+      }
 
       // Extract metadata.
       $metadata = $this->extractMetadata($file);

@@ -78,8 +78,8 @@ class Step2PlanForm extends FormBase {
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $session = $this->sessionManager->getSession();
 
-    if ($session === NULL || !$session->hasProcessedDocuments()) {
-      $this->messenger()->addError($this->t('No documents found. Please upload documents first.'));
+    if ($session === NULL || (!$session->hasProcessedDocuments() && !$session->hasProcessedWebpages())) {
+      $this->messenger()->addError($this->t('No documents or webpages found. Please upload documents or add webpage URLs first.'));
       return $this->buildErrorForm($form);
     }
 
@@ -92,10 +92,17 @@ class Step2PlanForm extends FormBase {
         // Get AI contexts from the selected contexts in session.
         $contexts = $this->buildContextsFromSession($session);
 
+        // Build options including webpages if available.
+        $options = [];
+        if ($session->hasProcessedWebpages()) {
+          $options['webpages'] = $session->getProcessedWebpages();
+        }
+
         $plan = $this->planGenerator->generate(
           $session->getProcessedDocuments(),
           $contexts,
-          $session->getTemplateId()
+          $session->getTemplateId(),
+          $options
         );
         $this->sessionManager->setContentPlan($plan);
       }

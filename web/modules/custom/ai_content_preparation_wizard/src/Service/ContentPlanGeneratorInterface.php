@@ -16,10 +16,11 @@ use Drupal\ai_content_preparation_wizard\Model\ContentPlan;
 interface ContentPlanGeneratorInterface {
 
   /**
-   * Generates a content plan from processed documents and AI contexts.
+   * Generates a content plan from processed documents, webpages, and AI contexts.
    *
-   * Combines the content from multiple processed documents with contextual
-   * information to create a structured content plan suitable for Canvas pages.
+   * Combines the content from multiple processed documents and webpages with
+   * contextual information to create a structured content plan suitable for
+   * Canvas pages.
    *
    * @param array<\Drupal\ai_content_preparation_wizard\Model\ProcessedDocument> $documents
    *   The processed documents to generate a plan from.
@@ -32,6 +33,7 @@ interface ContentPlanGeneratorInterface {
    *   - 'target_audience': The intended audience.
    *   - 'tone': The desired tone (formal, casual, technical).
    *   - 'max_sections': Maximum number of sections to generate.
+   *   - 'webpages': Array of ProcessedWebpage objects to include.
    *
    * @return \Drupal\ai_content_preparation_wizard\Model\ContentPlan
    *   The generated content plan.

@@ -91,8 +91,26 @@ class PdfToTextProcessor extends DocumentProcessorBase {
   ): static {
     // Get paths from configuration if available.
     $config = $container->get('config.factory')->get('ai_content_preparation_wizard.settings');
-    $pdftotextPath = $config->get('pdftotext_path') ?: 'pdftotext';
-    $pdfinfoPath = $config->get('pdfinfo_path') ?: 'pdfinfo';
+
+    // Try new document_processors config first, then fall back to legacy config.
+    $pdftotextPath = static::getExecutableForExtensionStatic(
+      $config->get('document_processors') ?? '',
+      'pdf'
+    );
+    if ($pdftotextPath === NULL) {
+      $pdftotextPath = $config->get('pdftotext_path') ?: 'pdftotext';
+    }
+
+    // pdfinfo path - derive from pdftotext path if in same directory.
+    $pdfinfoPath = $config->get('pdfinfo_path');
+    if (empty($pdfinfoPath) && $pdftotextPath !== 'pdftotext') {
+      // Try to find pdfinfo in the same directory as pdftotext.
+      $potentialPath = dirname($pdftotextPath) . '/pdfinfo';
+      $pdfinfoPath = file_exists($potentialPath) ? $potentialPath : 'pdfinfo';
+    }
+    else {
+      $pdfinfoPath = $pdfinfoPath ?: 'pdfinfo';
+    }
 
     return new static(
       $configuration,
@@ -103,6 +121,57 @@ class PdfToTextProcessor extends DocumentProcessorBase {
       $pdftotextPath,
       $pdfinfoPath,
     );
+  }
+
+  /**
+   * Gets the executable path for a given extension from document_processors.
+   *
+   * @param string $documentProcessors
+   *   The document_processors config value (multi-line string).
+   * @param string $extension
+   *   The file extension to look up.
+   *
+   * @return string|null
+   *   The executable path or NULL if not found.
+   */
+  protected static function getExecutableForExtensionStatic(string $documentProcessors, string $extension): ?string {
+    if (empty($documentProcessors)) {
+      return NULL;
+    }
+
+    $lines = preg_split('/\r\n|\r|\n/', $documentProcessors);
+
+    foreach ($lines as $line) {
+      $line = trim($line);
+
+      // Skip empty lines and comments.
+      if (empty($line) || str_starts_with($line, '#')) {
+        continue;
+      }
+
+      // Parse format: extensions|path.
+      if (!str_contains($line, '|')) {
+        continue;
+      }
+
+      [$extensions, $path] = explode('|', $line, 2);
+      $extensions = trim($extensions);
+      $path = trim($path);
+
+      if (empty($extensions) || empty($path)) {
+        continue;
+      }
+
+      // Handle multiple extensions separated by comma.
+      $extList = array_map('trim', explode(',', $extensions));
+      $extList = array_map('strtolower', $extList);
+
+      if (in_array(strtolower($extension), $extList, TRUE)) {
+        return $path;
+      }
+    }
+
+    return NULL;
   }
 
   /**

@@ -59,6 +59,20 @@ final class WizardSession {
   private array $uploadedFileIds = [];
 
   /**
+   * Webpage URLs for content extraction.
+   *
+   * @var string[]
+   */
+  private array $webpageUrls = [];
+
+  /**
+   * The processed webpages in this session.
+   *
+   * @var \Drupal\ai_content_preparation_wizard\Model\ProcessedWebpage[]
+   */
+  private array $processedWebpages = [];
+
+  /**
    * Refinement instructions provided by the user.
    *
    * @var string|null
@@ -318,6 +332,120 @@ final class WizardSession {
   }
 
   /**
+   * Gets the webpage URLs.
+   *
+   * @return string[]
+   *   The webpage URLs.
+   */
+  public function getWebpageUrls(): array {
+    return $this->webpageUrls;
+  }
+
+  /**
+   * Sets the webpage URLs.
+   *
+   * @param string[] $urls
+   *   The webpage URLs.
+   *
+   * @return self
+   *   This session for chaining.
+   */
+  public function setWebpageUrls(array $urls): self {
+    $this->webpageUrls = array_values(array_filter($urls));
+    $this->touch();
+    return $this;
+  }
+
+  /**
+   * Adds a webpage URL.
+   *
+   * @param string $url
+   *   The webpage URL.
+   *
+   * @return self
+   *   This session for chaining.
+   */
+  public function addWebpageUrl(string $url): self {
+    if (!in_array($url, $this->webpageUrls, TRUE)) {
+      $this->webpageUrls[] = $url;
+      $this->touch();
+    }
+    return $this;
+  }
+
+  /**
+   * Checks if the session has webpage URLs.
+   *
+   * @return bool
+   *   TRUE if there are webpage URLs.
+   */
+  public function hasWebpageUrls(): bool {
+    return !empty($this->webpageUrls);
+  }
+
+  /**
+   * Gets all processed webpages.
+   *
+   * @return \Drupal\ai_content_preparation_wizard\Model\ProcessedWebpage[]
+   *   The processed webpages.
+   */
+  public function getProcessedWebpages(): array {
+    return $this->processedWebpages;
+  }
+
+  /**
+   * Adds a processed webpage to the session.
+   *
+   * @param \Drupal\ai_content_preparation_wizard\Model\ProcessedWebpage $webpage
+   *   The processed webpage.
+   *
+   * @return self
+   *   This session for chaining.
+   */
+  public function addProcessedWebpage(ProcessedWebpage $webpage): self {
+    $this->processedWebpages[$webpage->id] = $webpage;
+    $this->touch();
+    return $this;
+  }
+
+  /**
+   * Removes a processed webpage by ID.
+   *
+   * @param string $webpageId
+   *   The webpage ID to remove.
+   *
+   * @return self
+   *   This session for chaining.
+   */
+  public function removeProcessedWebpage(string $webpageId): self {
+    unset($this->processedWebpages[$webpageId]);
+    $this->touch();
+    return $this;
+  }
+
+  /**
+   * Clears all processed webpages.
+   *
+   * @return self
+   *   This session for chaining.
+   */
+  public function clearProcessedWebpages(): self {
+    $this->processedWebpages = [];
+    $this->touch();
+    return $this;
+  }
+
+  /**
+   * Checks if the session has processed webpages.
+   *
+   * @return bool
+   *   TRUE if there are processed webpages.
+   */
+  public function hasProcessedWebpages(): bool {
+    return !empty($this->processedWebpages);
+  }
+
+  /**
    * Gets the refinement instructions.
    *
    * @return string|null
@@ -390,7 +518,7 @@ final class WizardSession {
    */
   public function canProceed(): bool {
     return match ($this->currentStep) {
-      WizardStep::UPLOAD => $this->hasProcessedDocuments() && $this->templateId !== NULL,
+      WizardStep::UPLOAD => ($this->hasProcessedDocuments() || $this->hasProcessedWebpages()) && $this->templateId !== NULL,
       WizardStep::PLAN => $this->hasContentPlan(),
       WizardStep::CREATE => TRUE,
     };
@@ -415,6 +543,11 @@ final class WizardSession {
       $processedDocs[$doc->id] = $doc->toArray();
     }
 
+    $processedWebpages = [];
+    foreach ($this->processedWebpages as $webpage) {
+      $processedWebpages[$webpage->id] = $webpage->toArray();
+    }
+
     return [
       'id' => $this->id,
       'user_id' => $this->userId,
@@ -422,10 +555,12 @@ final class WizardSession {
       'updated_at' => $this->updatedAt,
       'current_step' => $this->currentStep->value,
       'processed_documents' => $processedDocs,
+      'processed_webpages' => $processedWebpages,
       'content_plan' => $this->contentPlan?->toArray(),
       'selected_contexts' => $this->selectedContexts,
       'template_id' => $this->templateId,
       'uploaded_file_ids' => $this->uploadedFileIds,
+      'webpage_urls' => $this->webpageUrls,
       'refinement_instructions' => $this->refinementInstructions,
     ];
   }
@@ -451,11 +586,18 @@ final class WizardSession {
     $session->selectedContexts = $data['selected_contexts'] ?? [];
     $session->templateId = $data['template_id'] ?? NULL;
     $session->uploadedFileIds = $data['uploaded_file_ids'] ?? [];
+    $session->webpageUrls = $data['webpage_urls'] ?? [];
     $session->refinementInstructions = $data['refinement_instructions'] ?? NULL;
 
     if (!empty($data['processed_documents'])) {
       foreach ($data['processed_documents'] as $docData) {
         $session->processedDocuments[$docData['id']] = ProcessedDocument::fromArray($docData);
+      }
+    }
+
+    if (!empty($data['processed_webpages'])) {
+      foreach ($data['processed_webpages'] as $webpageData) {
+        $session->processedWebpages[$webpageData['id']] = ProcessedWebpage::fromArray($webpageData);
       }
     }
 

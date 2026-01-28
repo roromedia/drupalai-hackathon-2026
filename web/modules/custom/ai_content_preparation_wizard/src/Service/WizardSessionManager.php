@@ -10,6 +10,7 @@ use Drupal\ai_content_preparation_wizard\Enum\WizardStep;
 use Drupal\ai_content_preparation_wizard\Event\WizardStepChangedEvent;
 use Drupal\ai_content_preparation_wizard\Model\ContentPlan;
 use Drupal\ai_content_preparation_wizard\Model\ProcessedDocument;
+use Drupal\ai_content_preparation_wizard\Model\ProcessedWebpage;
 use Drupal\ai_content_preparation_wizard\Model\WizardSession;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\Core\TempStore\PrivateTempStoreFactory;
@@ -174,6 +175,20 @@ final class WizardSessionManager implements WizardSessionManagerInterface {
   /**
    * {@inheritdoc}
    */
+  public function addProcessedWebpage(ProcessedWebpage $webpage): void {
+    $session = $this->getSession();
+
+    if ($session === NULL) {
+      $session = $this->createSession();
+    }
+
+    $session->addProcessedWebpage($webpage);
+    $this->saveSession($session);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function setContentPlan(ContentPlan $plan): void {
     $session = $this->getSession();
 
@@ -284,6 +299,33 @@ final class WizardSessionManager implements WizardSessionManagerInterface {
 
     if ($session !== NULL) {
       $session->clearContentPlan();
+      $this->saveSession($session);
+    }
+  }
+
+  /**
+   * Removes a processed webpage from the session.
+   *
+   * @param string $webpageId
+   *   The webpage ID to remove.
+   */
+  public function removeProcessedWebpage(string $webpageId): void {
+    $session = $this->getSession();
+
+    if ($session !== NULL) {
+      $session->removeProcessedWebpage($webpageId);
+      $this->saveSession($session);
+    }
+  }
+
+  /**
+   * Clears all processed webpages from the session.
+   */
+  public function clearProcessedWebpages(): void {
+    $session = $this->getSession();
+
+    if ($session !== NULL) {
+      $session->clearProcessedWebpages();
       $this->saveSession($session);
     }
   }

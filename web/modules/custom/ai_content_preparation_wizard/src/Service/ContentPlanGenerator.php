@@ -16,6 +16,7 @@ use Drupal\ai_content_preparation_wizard\Model\AIContext;
 use Drupal\ai_content_preparation_wizard\Model\ContentPlan;
 use Drupal\ai_content_preparation_wizard\Model\PlanSection;
 use Drupal\ai_content_preparation_wizard\Model\ProcessedDocument;
+use Drupal\ai_content_preparation_wizard\Model\ProcessedWebpage;
 use Drupal\ai_content_preparation_wizard\Model\RefinementEntry;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\canvas_ai\CanvasAiPageBuilderHelper;
@@ -92,9 +93,12 @@ class ContentPlanGenerator implements ContentPlanGeneratorInterface {
    * {@inheritdoc}
    */
   public function generate(array $documents, array $contexts = [], ?string $templateId = NULL, array $options = []): ContentPlan {
-    // Validate we have documents to process.
-    if (empty($documents)) {
-      throw new PlanGenerationException('No documents provided for plan generation.');
+    // Get webpages from options if provided.
+    $webpages = $options['webpages'] ?? [];
+
+    // Validate we have content to process.
+    if (empty($documents) && empty($webpages)) {
+      throw new PlanGenerationException('No documents or webpages provided for plan generation.');
     }
 
     // Get AI provider and model.
@@ -110,6 +114,9 @@ class ContentPlanGenerator implements ContentPlanGeneratorInterface {
     // Build the document content.
     $documentContent = $this->buildDocumentContent($documents);
 
+    // Build the webpage content.
+    $webpageContent = $this->buildWebpageContent($webpages);
+
     // Build the context content.
     $contextContent = $this->buildContextContent($contexts);
 
@@ -117,7 +124,7 @@ class ContentPlanGenerator implements ContentPlanGeneratorInterface {
     $systemPrompt = $this->buildGenerationSystemPrompt($templateId, $options);
 
     // Build the user message.
-    $userMessage = $this->buildGenerationUserMessage($documentContent, $contextContent, $options);
+    $userMessage = $this->buildGenerationUserMessage($documentContent, $webpageContent, $contextContent, $options);
 
     // Execute the AI call with retries.
     $responseData = $this->executeAiCallWithRetries(
@@ -317,6 +324,65 @@ class ContentPlanGenerator implements ContentPlanGeneratorInterface {
   }
 
   /**
+   * Maximum content length per webpage (in characters) before truncation.
+   */
+  private const MAX_WEBPAGE_CONTENT_LENGTH = 30000;
+
+  /**
+   * Builds combined content from all processed webpages.
+   *
+   * @param array<\Drupal\ai_content_preparation_wizard\Model\ProcessedWebpage> $webpages
+   *   The processed webpages.
+   *
+   * @return string
+   *   The combined markdown content from webpages.
+   */
+  protected function buildWebpageContent(array $webpages): string {
+    if (empty($webpages)) {
+      return '';
+    }
+
+    $parts = [];
+
+    foreach ($webpages as $webpage) {
+      if (!$webpage instanceof ProcessedWebpage) {
+        continue;
+      }
+
+      // Clean and truncate the markdown content.
+      $content = $this->cleanMarkdownContent($webpage->markdownContent);
+
+      // Truncate if exceeds per-webpage limit.
+      if (mb_strlen($content) > self::MAX_WEBPAGE_CONTENT_LENGTH) {
+        $content = mb_substr($content, 0, self::MAX_WEBPAGE_CONTENT_LENGTH);
+        $content .= "\n\n[Content truncated due to length...]";
+      }
+
+      $parts[] = sprintf(
+        "## Referenced Webpage: %s\n**Source URL:** %s\n\n%s",
+        $webpage->title,
+        $webpage->url,
+        $content
+      );
+    }
+
+    if (empty($parts)) {
+      return '';
+    }
+
+    $combined = implode("\n\n---\n\n", $parts);
+
+    // Apply total content limit for webpages (half of document limit).
+    $maxTotal = (int) (self::MAX_TOTAL_CONTENT_LENGTH / 2);
+    if (mb_strlen($combined) > $maxTotal) {
+      $combined = mb_substr($combined, 0, $maxTotal);
+      $combined .= "\n\n[Total webpage content truncated due to length...]";
+    }
+
+    return $combined;
+  }
+
+  /**
    * Builds combined content from all AI contexts.
    *
    * @param array<\Drupal\ai_content_preparation_wizard\Model\AIContext|string> $contexts
@@ -406,7 +472,13 @@ class ContentPlanGenerator implements ContentPlanGeneratorInterface {
     $componentTypeInstruction = $this->buildComponentTypeInstruction('');
 
     $prompt = <<<PROMPT
-You are a content planning assistant specializing in creating structured content plans for web pages. Your task is to analyze the provided documents and create a comprehensive content plan.
+You are a content planning assistant specializing in creating structured content plans for web pages. Your task is to analyze the provided source materials and create a comprehensive content plan.
+
+**Source Materials:** The content you receive may include:
+- **Uploaded Documents**: Files uploaded by the user (e.g., PDFs, Word documents, text files)
+- **Referenced Webpages**: Content extracted from web pages the user has referenced
+
+When both documents and webpages are provided, synthesize information from all sources to create a cohesive content plan. Treat webpage content as supplementary reference material that can inform and enhance the content derived from uploaded documents.
 
 Your response MUST be valid JSON matching this schema:
 {
@@ -436,8 +508,9 @@ Guidelines:
 4. Keep sections focused and digestible
 5. Include clear headings for navigation
 6. Consider the target audience when structuring content
-7. Preserve important information from the source documents
+7. Preserve important information from the source materials (documents and/or webpages)
 8. Use hierarchy (children) for complex nested content
+9. When webpage content is provided, use it to supplement and enrich the content plan
 PROMPT;
 
     // Add template-specific instructions if provided.
@@ -734,6 +807,8 @@ TEXT;
    *
    * @param string $documentContent
    *   The combined document content.
+   * @param string $webpageContent
+   *   The combined webpage content.
    * @param string $contextContent
    *   The combined context content.
    * @param array<string, mixed> $options
@@ -742,9 +817,39 @@ TEXT;
    * @return string
    *   The user message.
    */
-  protected function buildGenerationUserMessage(string $documentContent, string $contextContent, array $options = []): string {
-    $message = "Please create a content plan for the following documents:\n\n";
-    $message .= $documentContent;
+  protected function buildGenerationUserMessage(string $documentContent, string $webpageContent, string $contextContent, array $options = []): string {
+    $hasDocuments = !empty(trim($documentContent));
+    $hasWebpages = !empty(trim($webpageContent));
+
+    // Build intro based on what content sources are available.
+    if ($hasDocuments && $hasWebpages) {
+      $message = "Please create a content plan based on the following uploaded documents AND referenced webpages:\n\n";
+    }
+    elseif ($hasDocuments) {
+      $message = "Please create a content plan for the following documents:\n\n";
+    }
+    elseif ($hasWebpages) {
+      $message = "Please create a content plan based on the following referenced webpages:\n\n";
+    }
+    else {
+      $message = "Please create a content plan:\n\n";
+    }
+
+    // Add document content.
+    if ($hasDocuments) {
+      $message .= "# Uploaded Documents\n\n";
+      $message .= $documentContent;
+    }
+
+    // Add webpage content.
+    if ($hasWebpages) {
+      if ($hasDocuments) {
+        $message .= "\n\n---\n\n";
+      }
+      $message .= "# Referenced Webpages\n\n";
+      $message .= "The following content was extracted from referenced web pages. Use this information alongside any uploaded documents to inform the content plan.\n\n";
+      $message .= $webpageContent;
+    }
 
     if (!empty($contextContent)) {
       $message .= "\n\n## Additional Context\n\n" . $contextContent;

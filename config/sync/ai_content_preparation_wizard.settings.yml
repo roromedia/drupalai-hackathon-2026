@@ -1,6 +1,12 @@
 _core:
   default_config_hash: CnMDjnwForHi_GT3i_XaQPEufjjthpNa6Wd_HO7_Wws
+document_processors: |
+  pdf|/usr/bin/pdftotext
+  txt,md,docx,odt,rtf|/usr/bin/pandoc
+enable_logging: false
 pandoc_path: /usr/bin/pandoc
+pdftotext_path: /usr/bin/pdftotext
+pdfinfo_path: /usr/bin/pdfinfo
 max_file_size: 10485760
 allowed_extensions:
   - txt
@@ -12,3 +18,7 @@ default_ai_model: ''
 session_timeout: 3600
 enable_refinement: true
 max_refinement_iterations: 5
+webpage_processor_mode: 'basic'
+webpage_processor_binary: ''
+webpage_processor_arguments: '{url}'
+webpage_processor_timeout: 30

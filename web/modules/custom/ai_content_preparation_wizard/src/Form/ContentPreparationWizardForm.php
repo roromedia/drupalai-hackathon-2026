@@ -7,6 +7,7 @@ namespace Drupal\ai_content_preparation_wizard\Form;
 use Drupal\ai_content_preparation_wizard\Service\CanvasCreatorInterface;
 use Drupal\ai_content_preparation_wizard\Service\ContentPlanGeneratorInterface;
 use Drupal\ai_content_preparation_wizard\Service\DocumentProcessingServiceInterface;
+use Drupal\ai_content_preparation_wizard\Service\WebpageProcessorInterface;
 use Drupal\ai_content_preparation_wizard\Service\WizardSessionManagerInterface;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\Xss;
@@ -27,6 +28,27 @@ final class ContentPreparationWizardForm extends FormBase {
    * @var object|null
    */
   protected $pageBuilderHelper = NULL;
+
+  /**
+   * The webpage processor service.
+   *
+   * @var \Drupal\ai_content_preparation_wizard\Service\WebpageProcessorInterface|null
+   */
+  protected ?WebpageProcessorInterface $webpageProcessor = NULL;
+
+  /**
+   * The AI provider plugin manager.
+   *
+   * @var \Drupal\ai\AiProviderPluginManager|null
+   */
+  protected $aiProviderManager = NULL;
+
+  /**
+   * The config factory.
+   *
+   * @var \Drupal\Core\Config\ConfigFactoryInterface|null
+   */
+  protected $configFactory = NULL;
 
   /**
    * Constructs a ContentPreparationWizardForm object.
@@ -65,6 +87,17 @@ final class ContentPreparationWizardForm extends FormBase {
     if ($container->has('canvas_ai.page_builder_helper')) {
       $instance->pageBuilderHelper = $container->get('canvas_ai.page_builder_helper');
     }
+
+    // Inject the webpage processor service if available.
+    if ($container->has('ai_content_preparation_wizard.webpage_processor')) {
+      $instance->webpageProcessor = $container->get('ai_content_preparation_wizard.webpage_processor');
+    }
+
+    // Inject AI provider manager and config factory for model info display.
+    if ($container->has('ai.provider')) {
+      $instance->aiProviderManager = $container->get('ai.provider');
+    }
+    $instance->configFactory = $container->get('config.factory');
 
     return $instance;
   }
@@ -178,7 +211,21 @@ final class ContentPreparationWizardForm extends FormBase {
         'FileSizeLimit' => ['fileLimit' => $maxSize],
       ],
       '#multiple' => TRUE,
-      '#required' => TRUE,
+      '#required' => FALSE,
+    ];
+
+    // Webpage URLs input field.
+    $form['step1']['webpage_urls'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Web Page URLs'),
+      '#description' => $this->t('Enter webpage URLs to extract content from (one URL per line). The content will be fetched and converted to markdown.'),
+      '#placeholder' => "https://example.com/page1\nhttps://example.com/page2",
+      '#rows' => 4,
+      '#required' => FALSE,
+    ];
+
+    $form['step1']['content_source_note'] = [
+      '#markup' => '<p class="form-item__description">' . $this->t('You must provide at least one document upload OR one webpage URL to proceed.') . '</p>',
     ];
 
     // Load AI context entities dynamically.
@@ -228,7 +275,7 @@ final class ContentPreparationWizardForm extends FormBase {
 
     $form['actions']['next'] = [
       '#type' => 'submit',
-      '#name' => 'op',
+      '#name' => 'next_step1',
       '#value' => $this->t('Next'),
       '#submit' => ['::submitStep1'],
       '#ajax' => [
@@ -250,14 +297,117 @@ final class ContentPreparationWizardForm extends FormBase {
     $session = $this->sessionManager->getSession();
     $plan = $session?->getContentPlan();
     $processedDocs = $session?->getProcessedDocuments() ?? [];
+    $documentErrors = [];
+
+    // Process uploaded documents if not already processed.
+    // This is done async in buildStep2 (like webpages) for better UX.
+    $uploadedFileIds = $session?->getUploadedFileIds() ?? [];
+    if (!empty($uploadedFileIds) && empty($processedDocs)) {
+      foreach ($uploadedFileIds as $fileId) {
+        if (!$fileId) {
+          continue;
+        }
+        $file = $this->entityTypeManager->getStorage('file')->load($fileId);
+        if ($file) {
+          try {
+            $processed = $this->documentProcessing->process($file);
+            $session->addProcessedDocument($processed);
+          }
+          catch (\Exception $e) {
+            $documentErrors[$file->getFilename()] = $e->getMessage();
+          }
+        }
+      }
+      // Update session with processed documents.
+      if (!empty($session->getProcessedDocuments())) {
+        $this->sessionManager->updateSession($session);
+        $processedDocs = $session->getProcessedDocuments();
+      }
+    }
+
+    // Process webpage URLs if not already processed.
+    $webpageUrls = $session?->getWebpageUrls() ?? [];
+    $processedWebpages = [];
+    $webpageErrors = [];
+
+    if (!empty($webpageUrls) && $this->webpageProcessor !== NULL) {
+      // Check which URLs are already processed (stored in session documents).
+      $alreadyProcessedUrls = [];
+      foreach ($processedDocs as $doc) {
+        $sourceUrl = $doc->metadata->customProperties['source_url'] ?? NULL;
+        if ($sourceUrl !== NULL) {
+          $alreadyProcessedUrls[$sourceUrl] = TRUE;
+        }
+      }
+
+      // Only process URLs that haven't been processed yet.
+      foreach ($webpageUrls as $url) {
+        if (isset($alreadyProcessedUrls[$url])) {
+          // Already processed, skip.
+          continue;
+        }
+
+        try {
+          $processedWebpage = $this->webpageProcessor->processUrl($url);
+          $processedWebpages[$url] = $processedWebpage;
+          // Also add to session as a processed document for plan generation.
+          $session->addProcessedDocument($processedWebpage);
+        }
+        catch (\Exception $e) {
+          $webpageErrors[$url] = $e->getMessage();
+        }
+      }
+      // Update session if we processed any new webpages.
+      if (!empty($processedWebpages)) {
+        // Clear and regenerate content plan to include new webpage content.
+        $session->clearContentPlan();
+        $this->sessionManager->updateSession($session);
+        // Refresh processed docs to include webpages.
+        $processedDocs = $session->getProcessedDocuments();
+      }
+    }
 
     $form['step2'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['wizard-step-content']],
     ];
 
+    // Display any document processing errors.
+    if (!empty($documentErrors)) {
+      $form['step2']['document_errors'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['messages', 'messages--warning']],
+      ];
+      foreach ($documentErrors as $filename => $error) {
+        $form['step2']['document_errors']['error_' . md5($filename)] = [
+          '#markup' => '<p>' . $this->t('Failed to process document @file: @error', [
+            '@file' => $filename,
+            '@error' => $error,
+          ]) . '</p>',
+        ];
+      }
+    }
+
+    // Display any webpage processing errors.
+    if (!empty($webpageErrors)) {
+      $form['step2']['webpage_errors'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['messages', 'messages--warning']],
+      ];
+      foreach ($webpageErrors as $url => $error) {
+        $form['step2']['webpage_errors']['error_' . md5($url)] = [
+          '#markup' => '<p>' . $this->t('Failed to process webpage @url: @error', [
+            '@url' => $url,
+            '@error' => $error,
+          ]) . '</p>',
+        ];
+      }
+    }
+
     // Check if we need to generate the plan asynchronously.
-    $needsAsyncGeneration = empty($plan) && !empty($processedDocs);
+    // Both documents and webpages are processed in buildStep2 for consistent async UX.
+    $hasContentSources = !empty($processedDocs) || !empty($webpageUrls) || !empty($uploadedFileIds);
+    $needsAsyncGeneration = empty($plan) && $hasContentSources;
 
     if ($needsAsyncGeneration) {
       // Pass endpoint URL for async plan generation.
@@ -281,11 +431,11 @@ final class ContentPreparationWizardForm extends FormBase {
       ];
 
       $form['step2']['split_layout']['markdown_panel']['header'] = [
-        '#markup' => '<div class="markdown-preview-header">' . $this->t('Source Document Preview') . '</div>',
+        '#markup' => '<div class="markdown-preview-header">' . $this->t('Source Content Preview') . '</div>',
       ];
 
-      // Build tabbed document preview.
-      $this->buildTabbedDocumentPreview($form['step2']['split_layout']['markdown_panel'], $processedDocs);
+      // Build tabbed document preview (includes both documents and webpages).
+      $this->buildTabbedDocumentPreview($form['step2']['split_layout']['markdown_panel'], $processedDocs, $webpageUrls);
 
       // Right panel: Plan Review.
       $form['step2']['split_layout']['plan_panel'] = [
@@ -311,6 +461,9 @@ final class ContentPreparationWizardForm extends FormBase {
           ],
           'message' => [
             '#markup' => '<div class="plan-loading-message">' . $this->t('Generating content plan with AI...') . '</div>',
+          ],
+          'model_info' => [
+            '#markup' => '<div class="plan-loading-model"><strong>' . $this->t('Using:') . '</strong> ' . $this->getAiModelInfo() . '</div>',
           ],
           'status' => [
             '#markup' => '<div class="plan-loading-status" id="plan-loading-status">' . $this->t('Analyzing documents and creating sections...') . '</div>',
@@ -369,6 +522,9 @@ final class ContentPreparationWizardForm extends FormBase {
           ],
           'read_time' => [
             '#markup' => '<div><strong>' . $this->t('Estimated Read Time:') . '</strong> ' . $plan->estimatedReadTime . ' ' . $this->t('minutes') . '</div>',
+          ],
+          'ai_model' => [
+            '#markup' => '<div><strong>' . $this->t('AI Model:') . '</strong> ' . $this->getAiModelInfo() . '</div>',
           ],
         ];
 
@@ -624,35 +780,84 @@ final class ContentPreparationWizardForm extends FormBase {
    *   The form container to add elements to.
    * @param array $processedDocs
    *   Array of ProcessedDocument objects.
+   * @param array $webpageUrls
+   *   Array of webpage URLs that were processed (for display purposes).
    */
-  protected function buildTabbedDocumentPreview(array &$container, array $processedDocs): void {
-    if (empty($processedDocs)) {
+  protected function buildTabbedDocumentPreview(array &$container, array $processedDocs, array $webpageUrls = []): void {
+    // Check if we have any content sources.
+    if (empty($processedDocs) && empty($webpageUrls)) {
       $container['content'] = [
-        '#markup' => '<div class="markdown-preview-content"><em>' . $this->t('No documents available for preview.') . '</em></div>',
+        '#markup' => '<div class="markdown-preview-content"><em>' . $this->t('No content available for preview.') . '</em></div>',
       ];
       return;
     }
 
-    // Use Drupal native vertical_tabs for document switching.
-    $container['document_tabs'] = [
-      '#type' => 'vertical_tabs',
-      '#default_tab' => 'edit-doc-0',
-    ];
+    // If we have URLs but no processed docs yet, show loading state.
+    if (empty($processedDocs) && !empty($webpageUrls)) {
+      $container['content'] = [
+        '#markup' => '<div class="markdown-preview-content"><em>' . $this->t('Processing webpage content...') . '</em></div>',
+      ];
+      return;
+    }
 
-    foreach ($processedDocs as $index => $doc) {
+    // Separate documents from webpages based on provider.
+    $documents = [];
+    $webpages = [];
+    foreach ($processedDocs as $doc) {
       if (!isset($doc->markdownContent)) {
         continue;
       }
+      // Check if this is a webpage by provider type or by checking metadata.
+      // Use the enum value comparison for provider detection.
+      $providerValue = '';
+      if (isset($doc->provider)) {
+        $providerValue = is_object($doc->provider) ? ($doc->provider->value ?? '') : (string) $doc->provider;
+      }
+      $isWebpage = $providerValue === 'webpage' ||
+                   isset($doc->metadata->customProperties['source_url']);
+      if ($isWebpage) {
+        $webpages[] = $doc;
+      }
+      else {
+        $documents[] = $doc;
+      }
+    }
 
-      $fileName = $doc->fileName ?? $this->t('Document @num', ['@num' => $index + 1]);
-      $tabKey = 'doc_' . $index;
+    $hasBothTypes = !empty($documents) && !empty($webpages);
+
+    // Use Drupal native vertical_tabs for document switching.
+    // Set weight to ensure it appears after any section headers.
+    $container['document_tabs'] = [
+      '#type' => 'vertical_tabs',
+      '#default_tab' => 'edit-doc-0',
+      '#weight' => 0,
+    ];
+
+    $tabIndex = 0;
+    $docIndex = 0;
+    $webpageIndex = 0;
+
+    // Add uploaded documents.
+    foreach ($documents as $doc) {
+      $fileName = $doc->fileName ?? $this->t('Document @num', ['@num' => $docIndex + 1]);
+      $tabKey = 'doc_' . $tabIndex;
 
       // Create a details element for each document (becomes a vertical tab).
+      // The data attribute helps with CSS styling of the vertical tabs menu.
       $container[$tabKey] = [
         '#type' => 'details',
         '#title' => $fileName,
         '#group' => 'document_tabs',
-        '#attributes' => ['class' => ['document-tab-panel']],
+        '#attributes' => [
+          'class' => ['document-tab-panel', 'document-type-file'],
+          'data-content-type' => 'document',
+        ],
+        '#weight' => $tabIndex,
+      ];
+
+      // Add document type indicator badge.
+      $container[$tabKey]['type_indicator'] = [
+        '#markup' => '<div class="content-type-badge content-type-document">' . $this->t('Document') . '</div>',
       ];
 
       // Render markdown content inside the tab.
@@ -660,6 +865,50 @@ final class ContentPreparationWizardForm extends FormBase {
       $container[$tabKey]['content'] = [
         '#markup' => '<div class="markdown-preview-content">' . $renderedMarkdown . '</div>',
       ];
+
+      $tabIndex++;
+      $docIndex++;
+    }
+
+    // Add processed webpages.
+    foreach ($webpages as $doc) {
+      $sourceUrl = $doc->metadata->customProperties['source_url'] ?? '';
+      $pageTitle = $doc->metadata->title ?? $doc->fileName ?? $this->t('Webpage @num', ['@num' => $webpageIndex + 1]);
+      $tabKey = 'webpage_' . $tabIndex;
+
+      // Create a details element for each webpage (becomes a vertical tab).
+      // The data attribute helps with CSS styling of the vertical tabs menu.
+      $container[$tabKey] = [
+        '#type' => 'details',
+        '#title' => $pageTitle,
+        '#group' => 'document_tabs',
+        '#attributes' => [
+          'class' => ['document-tab-panel', 'document-type-webpage'],
+          'data-content-type' => 'webpage',
+        ],
+        '#weight' => 100 + $tabIndex,
+      ];
+
+      // Add webpage type indicator badge.
+      $container[$tabKey]['type_indicator'] = [
+        '#markup' => '<div class="content-type-badge content-type-webpage">' . $this->t('Web Page') . '</div>',
+      ];
+
+      // Show source URL.
+      if (!empty($sourceUrl)) {
+        $container[$tabKey]['source_url'] = [
+          '#markup' => '<div class="webpage-source-url"><strong>' . $this->t('Source:') . '</strong> <a href="' . Html::escape($sourceUrl) . '" target="_blank" rel="noopener">' . Html::escape($sourceUrl) . '</a></div>',
+        ];
+      }
+
+      // Render markdown content inside the tab.
+      $renderedMarkdown = $this->renderMarkdownToHtml($doc->markdownContent);
+      $container[$tabKey]['content'] = [
+        '#markup' => '<div class="markdown-preview-content webpage-content">' . $renderedMarkdown . '</div>',
+      ];
+
+      $tabIndex++;
+      $webpageIndex++;
     }
   }
 
@@ -730,6 +979,25 @@ final class ContentPreparationWizardForm extends FormBase {
     $fileIds = $form_state->getValue('documents') ?? [];
     $session->setUploadedFileIds(array_filter($fileIds));
 
+    // Store webpage URLs (parsed in validation, with fallback).
+    $webpageUrls = $form_state->get('parsed_webpage_urls') ?? [];
+
+    // Fallback: parse URLs directly from form value if not already parsed.
+    if (empty($webpageUrls)) {
+      $webpageUrlsRaw = trim($form_state->getValue('webpage_urls') ?? '');
+      if (!empty($webpageUrlsRaw)) {
+        $lines = preg_split('/\r\n|\r|\n/', $webpageUrlsRaw);
+        foreach ($lines as $line) {
+          $url = trim($line);
+          if (!empty($url)) {
+            $webpageUrls[] = $url;
+          }
+        }
+      }
+    }
+
+    $session->setWebpageUrls($webpageUrls);
+
     // Store AI contexts.
     $contexts = array_filter($form_state->getValue('ai_contexts') ?? []);
     $session->setSelectedContexts(array_values($contexts));
@@ -741,39 +1009,20 @@ final class ContentPreparationWizardForm extends FormBase {
     }
 
     // Clear existing documents and plan for fresh generation.
+    // Documents and webpages are processed async in buildStep2 for better UX.
     $session->clearProcessedDocuments();
     $session->clearContentPlan();
-    $processedDocs = [];
-    foreach ($fileIds as $fileId) {
-      if ($fileId) {
-        $file = $this->entityTypeManager->getStorage('file')->load($fileId);
-        if ($file) {
-          try {
-            $processed = $this->documentProcessing->process($file);
-            $session->addProcessedDocument($processed);
-            $processedDocs[] = $processed;
-          }
-          catch (\Exception $e) {
-            $this->messenger()->addError($this->t('Failed to process @file: @error', [
-              '@file' => $file->getFilename(),
-              '@error' => $e->getMessage(),
-            ]));
-          }
-        }
-      }
-    }
 
-    // Generate content plan synchronously (AI calls work in form context).
-    if (!empty($processedDocs) && $this->planGenerator) {
-      try {
-        $plan = $this->planGenerator->generate($processedDocs, $contexts, $canvasPageId);
-        $session->setContentPlan($plan);
-      }
-      catch (\Exception $e) {
-        $this->messenger()->addError($this->t('Failed to generate content plan: @error', [
-          '@error' => $e->getMessage(),
-        ]));
-      }
+    // Note: Document processing is now deferred to buildStep2 along with
+    // webpage processing, to provide a consistent async loading experience.
+    // The file IDs are already stored in session above.
+    $totalSources = count($fileIds) + count($webpageUrls);
+    if ($totalSources > 0) {
+      $this->messenger()->addStatus($this->formatPlural(
+        $totalSources,
+        '1 content source will be processed.',
+        '@count content sources will be processed.'
+      ));
     }
 
     $this->sessionManager->updateSession($session);
@@ -929,9 +1178,34 @@ final class ContentPreparationWizardForm extends FormBase {
     // Only validate step 1 fields when on step 1.
     if ($step === 1 && str_contains($triggerName, 'next')) {
       $documents = $form_state->getValue('documents');
-      if (empty(array_filter($documents ?? []))) {
-        $form_state->setErrorByName('documents', $this->t('Please upload at least one document.'));
+      $hasDocuments = !empty(array_filter($documents ?? []));
+
+      // Parse and validate webpage URLs.
+      $webpageUrlsRaw = trim($form_state->getValue('webpage_urls') ?? '');
+      $webpageUrls = [];
+      if (!empty($webpageUrlsRaw)) {
+        $lines = preg_split('/\r\n|\r|\n/', $webpageUrlsRaw);
+        foreach ($lines as $line) {
+          $url = trim($line);
+          if (!empty($url)) {
+            // Validate URL format.
+            if ($this->webpageProcessor !== NULL && !$this->webpageProcessor->isValidUrl($url)) {
+              $form_state->setErrorByName('webpage_urls', $this->t('Invalid URL: @url. Only HTTP/HTTPS URLs are supported.', ['@url' => $url]));
+              return;
+            }
+            $webpageUrls[] = $url;
+          }
+        }
       }
+      $hasWebpages = !empty($webpageUrls);
+
+      // Require at least one content source.
+      if (!$hasDocuments && !$hasWebpages) {
+        $form_state->setErrorByName('documents', $this->t('Please upload at least one document or enter at least one webpage URL.'));
+      }
+
+      // Store parsed URLs for submit handler.
+      $form_state->set('parsed_webpage_urls', $webpageUrls);
     }
   }
 
@@ -1153,6 +1427,67 @@ final class ContentPreparationWizardForm extends FormBase {
     catch (\Exception $e) {
       return NULL;
     }
+  }
+
+  /**
+   * Gets information about the configured AI model.
+   *
+   * @return string
+   *   A human-readable string with the AI provider and model name.
+   */
+  protected function getAiModelInfo(): string {
+    if ($this->configFactory === NULL) {
+      return $this->t('Unknown')->render();
+    }
+
+    $config = $this->configFactory->get('ai_content_preparation_wizard.settings');
+    $providerId = $config->get('default_ai_provider');
+    $modelId = $config->get('default_ai_model');
+
+    // If no provider configured, try to get the default from AI module.
+    if (empty($providerId) && $this->aiProviderManager !== NULL) {
+      try {
+        $defaultProvider = $this->aiProviderManager->getDefaultProviderForOperationType('chat');
+        if ($defaultProvider) {
+          // The method returns an array with provider_id and model_id keys.
+          if (is_array($defaultProvider)) {
+            $providerId = $defaultProvider['provider_id'] ?? '';
+            $modelId = $modelId ?: ($defaultProvider['model_id'] ?? $this->t('default')->render());
+          }
+          elseif (is_object($defaultProvider) && method_exists($defaultProvider, 'getPluginId')) {
+            $providerId = $defaultProvider->getPluginId();
+            $modelId = $modelId ?: $this->t('default')->render();
+          }
+        }
+      }
+      catch (\Exception $e) {
+        // Fall through to unknown.
+      }
+    }
+
+    if (empty($providerId)) {
+      return $this->t('Not configured')->render();
+    }
+
+    // Try to get provider label from plugin manager.
+    $providerLabel = $providerId;
+    if ($this->aiProviderManager !== NULL) {
+      try {
+        $definitions = $this->aiProviderManager->getDefinitions();
+        if (isset($definitions[$providerId])) {
+          $providerLabel = $definitions[$providerId]['label'] ?? $providerId;
+        }
+      }
+      catch (\Exception $e) {
+        // Keep using providerId as label.
+      }
+    }
+
+    if (!empty($modelId)) {
+      return $providerLabel . ' (' . $modelId . ')';
+    }
+
+    return (string) $providerLabel;
   }
 
 }

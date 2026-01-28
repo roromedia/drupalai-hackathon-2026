@@ -80,11 +80,20 @@ class SettingsForm extends ConfigFormBase {
       '#open' => TRUE,
     ];
 
-    $form['document_processing']['pandoc_path'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('Pandoc executable path'),
-      '#description' => $this->t('The full path to the Pandoc executable. Leave empty to use the system PATH. Example: /usr/bin/pandoc'),
-      '#default_value' => $config->get('pandoc_path') ?? '',
+    $default_processors = "pdf|/usr/bin/pdftotext\ntxt,md,docx|/usr/bin/pandoc";
+    $form['document_processing']['document_processors'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Document processors'),
+      '#description' => $this->t('One processor per line. Format: extension(s)|path_to_executable. Example: pdf|/usr/bin/pdftotext'),
+      '#default_value' => $config->get('document_processors') ?? $default_processors,
+      '#rows' => 5,
+    ];
+
+    $form['document_processing']['enable_logging'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Enable document conversion logging'),
+      '#description' => $this->t('Enable logging of converted documents to private://ai_content_preparation_wizard/logs'),
+      '#default_value' => $config->get('enable_logging') ?? FALSE,
     ];
 
     $form['document_processing']['max_file_size'] = [
@@ -146,6 +155,61 @@ class SettingsForm extends ConfigFormBase {
       '#field_suffix' => $this->t('seconds'),
     ];
 
+    // Webpage Scraping Settings.
+    $form['webpage_scraping'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Webpage Scraping'),
+      '#open' => TRUE,
+    ];
+
+    $form['webpage_scraping']['webpage_processor_mode'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Webpage processor mode'),
+      '#description' => $this->t('Select how webpages should be fetched and converted to markdown.'),
+      '#options' => [
+        'basic' => $this->t('Basic (built-in PHP processor)'),
+        'advanced' => $this->t('Advanced (external binary)'),
+      ],
+      '#default_value' => $config->get('webpage_processor_mode') ?? 'basic',
+    ];
+
+    $form['webpage_scraping']['webpage_processor_binary'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Webpage processor binary path'),
+      '#description' => $this->t('Path to external scraping tool (e.g., /usr/local/bin/trafilatura, /usr/bin/readability-cli). The binary should accept a URL as argument and output markdown to stdout.'),
+      '#default_value' => $config->get('webpage_processor_binary') ?? '',
+      '#states' => [
+        'visible' => [
+          ':input[name="webpage_processor_mode"]' => ['value' => 'advanced'],
+        ],
+        'required' => [
+          ':input[name="webpage_processor_mode"]' => ['value' => 'advanced'],
+        ],
+      ],
+    ];
+
+    $form['webpage_scraping']['webpage_processor_arguments'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Additional arguments'),
+      '#description' => $this->t('Additional command-line arguments to pass to the binary. Use {url} as placeholder for the URL. Example: --output-format markdown {url}'),
+      '#default_value' => $config->get('webpage_processor_arguments') ?? '{url}',
+      '#states' => [
+        'visible' => [
+          ':input[name="webpage_processor_mode"]' => ['value' => 'advanced'],
+        ],
+      ],
+    ];
+
+    $form['webpage_scraping']['webpage_processor_timeout'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Processor timeout'),
+      '#description' => $this->t('Maximum time in seconds to wait for webpage processing.'),
+      '#default_value' => $config->get('webpage_processor_timeout') ?? 30,
+      '#min' => 5,
+      '#max' => 120,
+      '#field_suffix' => $this->t('seconds'),
+    ];
+
     // Refinement Settings.
     $form['refinement_settings'] = [
       '#type' => 'details',
@@ -186,18 +250,76 @@ class SettingsForm extends ConfigFormBase {
   public function validateForm(array &$form, FormStateInterface $form_state): void {
     parent::validateForm($form, $form_state);
 
-    // Validate pandoc path if provided.
-    $pandoc_path = $form_state->getValue('pandoc_path');
-    if (!empty($pandoc_path)) {
-      if (!file_exists($pandoc_path)) {
-        $form_state->setErrorByName('pandoc_path', $this->t('The specified Pandoc executable path does not exist: @path', [
-          '@path' => $pandoc_path,
-        ]));
-      }
-      elseif (!is_executable($pandoc_path)) {
-        $form_state->setErrorByName('pandoc_path', $this->t('The specified Pandoc path exists but is not executable: @path', [
-          '@path' => $pandoc_path,
-        ]));
+    // Validate document processors.
+    $document_processors = $form_state->getValue('document_processors');
+    if (!empty($document_processors)) {
+      $lines = array_filter(array_map('trim', explode("\n", $document_processors)));
+      foreach ($lines as $line_number => $line) {
+        // Skip empty lines.
+        if (empty($line)) {
+          continue;
+        }
+
+        // Validate format: extension(s)|path.
+        if (!str_contains($line, '|')) {
+          $form_state->setErrorByName('document_processors', $this->t('Line @line: Invalid format. Each line must follow the format: extension(s)|path_to_executable', [
+            '@line' => $line_number + 1,
+          ]));
+          continue;
+        }
+
+        $parts = explode('|', $line, 2);
+        if (count($parts) !== 2) {
+          $form_state->setErrorByName('document_processors', $this->t('Line @line: Invalid format. Each line must follow the format: extension(s)|path_to_executable', [
+            '@line' => $line_number + 1,
+          ]));
+          continue;
+        }
+
+        [$extensions, $path] = $parts;
+        $extensions = trim($extensions);
+        $path = trim($path);
+
+        // Validate extensions format.
+        if (empty($extensions)) {
+          $form_state->setErrorByName('document_processors', $this->t('Line @line: Extensions cannot be empty.', [
+            '@line' => $line_number + 1,
+          ]));
+          continue;
+        }
+
+        $extension_list = array_map('trim', explode(',', $extensions));
+        foreach ($extension_list as $ext) {
+          if (!preg_match('/^[a-zA-Z0-9]+$/', $ext)) {
+            $form_state->setErrorByName('document_processors', $this->t('Line @line: Invalid extension "@ext". Extensions should only contain alphanumeric characters.', [
+              '@line' => $line_number + 1,
+              '@ext' => $ext,
+            ]));
+            break;
+          }
+        }
+
+        // Validate path is not empty.
+        if (empty($path)) {
+          $form_state->setErrorByName('document_processors', $this->t('Line @line: Executable path cannot be empty.', [
+            '@line' => $line_number + 1,
+          ]));
+          continue;
+        }
+
+        // Validate executable exists and is executable.
+        if (!file_exists($path)) {
+          $form_state->setErrorByName('document_processors', $this->t('Line @line: The specified executable path does not exist: @path', [
+            '@line' => $line_number + 1,
+            '@path' => $path,
+          ]));
+        }
+        elseif (!is_executable($path)) {
+          $form_state->setErrorByName('document_processors', $this->t('Line @line: The specified path exists but is not executable: @path', [
+            '@line' => $line_number + 1,
+            '@path' => $path,
+          ]));
+        }
       }
     }
 
@@ -214,6 +336,25 @@ class SettingsForm extends ConfigFormBase {
         }
       }
     }
+
+    // Validate webpage processor settings.
+    $processorMode = $form_state->getValue('webpage_processor_mode');
+    if ($processorMode === 'advanced') {
+      $binaryPath = trim($form_state->getValue('webpage_processor_binary') ?? '');
+      if (empty($binaryPath)) {
+        $form_state->setErrorByName('webpage_processor_binary', $this->t('Binary path is required when using Advanced mode.'));
+      }
+      elseif (!file_exists($binaryPath)) {
+        $form_state->setErrorByName('webpage_processor_binary', $this->t('The specified binary does not exist: @path', [
+          '@path' => $binaryPath,
+        ]));
+      }
+      elseif (!is_executable($binaryPath)) {
+        $form_state->setErrorByName('webpage_processor_binary', $this->t('The specified binary is not executable: @path', [
+          '@path' => $binaryPath,
+        ]));
+      }
+    }
   }
 
   /**
@@ -221,7 +362,8 @@ class SettingsForm extends ConfigFormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $this->config('ai_content_preparation_wizard.settings')
-      ->set('pandoc_path', $form_state->getValue('pandoc_path'))
+      ->set('document_processors', $form_state->getValue('document_processors'))
+      ->set('enable_logging', (bool) $form_state->getValue('enable_logging'))
       ->set('max_file_size', (int) $form_state->getValue('max_file_size'))
       ->set('allowed_extensions', $form_state->getValue('allowed_extensions'))
       ->set('default_ai_provider', $form_state->getValue('default_ai_provider'))
@@ -229,6 +371,10 @@ class SettingsForm extends ConfigFormBase {
       ->set('session_timeout', (int) $form_state->getValue('session_timeout'))
       ->set('enable_refinement', (bool) $form_state->getValue('enable_refinement'))
       ->set('max_refinement_iterations', (int) $form_state->getValue('max_refinement_iterations'))
+      ->set('webpage_processor_mode', $form_state->getValue('webpage_processor_mode'))
+      ->set('webpage_processor_binary', $form_state->getValue('webpage_processor_binary'))
+      ->set('webpage_processor_arguments', $form_state->getValue('webpage_processor_arguments'))
+      ->set('webpage_processor_timeout', (int) $form_state->getValue('webpage_processor_timeout'))
       ->save();
 
     parent::submitForm($form, $form_state);

@@ -9,6 +9,7 @@ use Drupal\ai_content_preparation_wizard\Service\DocumentProcessingServiceInterf
 use Drupal\ai_content_preparation_wizard\Service\WizardSessionManagerInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Component\Utility\UrlHelper;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\file\FileInterface;
@@ -71,6 +72,7 @@ class Step1UploadForm extends FormBase {
     $existingFileIds = $session?->getUploadedFileIds() ?? [];
     $existingContexts = $session?->getSelectedContexts() ?? ['site_structure', 'brand_guidelines'];
     $existingTemplate = $session?->getTemplateId() ?? '';
+    $existingWebpageUrls = $session?->getWebpageUrls() ?? [];
 
     // Step indicator.
     $form['step_indicator'] = [
@@ -125,6 +127,40 @@ class Step1UploadForm extends FormBase {
       '#attributes' => ['class' => ['drag-drop-help']],
       'markup' => [
         '#markup' => '<p class="drag-drop-text">' . $this->t('Drag and drop files here or click to browse') . '</p>',
+      ],
+    ];
+
+    // Webpage URLs section.
+    $form['webpage_urls_section'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Webpage URLs'),
+      '#open' => !empty($existingWebpageUrls),
+      '#attributes' => ['class' => ['webpage-urls-section']],
+    ];
+
+    $form['webpage_urls_section']['webpage_urls'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Enter Webpage URLs'),
+      '#description' => $this->t('Enter URLs of webpages to extract content from (one URL per line). The AI will fetch and process the content from these pages. Leave empty if you only want to use uploaded files.'),
+      '#default_value' => !empty($existingWebpageUrls) ? implode("\n", $existingWebpageUrls) : '',
+      '#rows' => 5,
+      '#placeholder' => "https://example.com/page1\nhttps://example.com/page2",
+      '#attributes' => ['class' => ['webpage-urls-textarea']],
+    ];
+
+    $form['webpage_urls_section']['webpage_urls_help'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['webpage-urls-help']],
+      'markup' => [
+        '#markup' => '<div class="description">'
+          . '<strong>' . $this->t('Supported URL types:') . '</strong><br>'
+          . '<ul>'
+          . '<li>' . $this->t('Public webpages (HTTP/HTTPS)') . '</li>'
+          . '<li>' . $this->t('Blog posts and articles') . '</li>'
+          . '<li>' . $this->t('Documentation pages') . '</li>'
+          . '</ul>'
+          . '<em>' . $this->t('Note: URLs requiring authentication are not supported.') . '</em>'
+          . '</div>',
       ],
     ];
 
@@ -196,9 +232,94 @@ class Step1UploadForm extends FormBase {
     // Filter out empty values (removed files).
     $fileIds = array_filter($fileIds ?? []);
 
-    if (empty($fileIds)) {
-      $form_state->setErrorByName('files', $this->t('Please upload at least one document to proceed.'));
+    // Parse and validate webpage URLs.
+    $webpageUrlsRaw = $form_state->getValue('webpage_urls') ?? '';
+    $webpageUrls = $this->parseWebpageUrls($webpageUrlsRaw);
+    $validUrls = [];
+    $invalidUrls = [];
+
+    foreach ($webpageUrls as $url) {
+      if ($this->isValidUrl($url)) {
+        $validUrls[] = $url;
+      }
+      else {
+        $invalidUrls[] = $url;
+      }
     }
+
+    // Store validated URLs in form state for submission.
+    $form_state->set('validated_webpage_urls', $validUrls);
+
+    // Report invalid URLs.
+    if (!empty($invalidUrls)) {
+      $form_state->setErrorByName('webpage_urls', $this->t('The following URLs are invalid: @urls', [
+        '@urls' => implode(', ', $invalidUrls),
+      ]));
+    }
+
+    // Require at least one file OR one valid URL.
+    if (empty($fileIds) && empty($validUrls)) {
+      $form_state->setErrorByName('files', $this->t('Please upload at least one document or provide at least one webpage URL to proceed.'));
+    }
+  }
+
+  /**
+   * Parses webpage URLs from textarea input.
+   *
+   * @param string $input
+   *   The raw textarea input with URLs separated by newlines.
+   *
+   * @return array
+   *   An array of trimmed, non-empty URLs.
+   */
+  protected function parseWebpageUrls(string $input): array {
+    if (empty(trim($input))) {
+      return [];
+    }
+
+    // Split by newlines and filter empty lines.
+    $lines = preg_split('/\r\n|\r|\n/', $input);
+    $urls = [];
+
+    foreach ($lines as $line) {
+      $url = trim($line);
+      if (!empty($url)) {
+        $urls[] = $url;
+      }
+    }
+
+    return $urls;
+  }
+
+  /**
+   * Validates a URL format.
+   *
+   * @param string $url
+   *   The URL to validate.
+   *
+   * @return bool
+   *   TRUE if the URL is valid, FALSE otherwise.
+   */
+  protected function isValidUrl(string $url): bool {
+    // Check basic URL format.
+    if (!UrlHelper::isValid($url, TRUE)) {
+      return FALSE;
+    }
+
+    // Parse the URL to check components.
+    $parsed = parse_url($url);
+
+    // Must have a scheme (http or https).
+    if (empty($parsed['scheme']) || !in_array($parsed['scheme'], ['http', 'https'], TRUE)) {
+      return FALSE;
+    }
+
+    // Must have a host.
+    if (empty($parsed['host'])) {
+      return FALSE;
+    }
+
+    return TRUE;
   }
 
   /**
@@ -209,6 +330,7 @@ class Step1UploadForm extends FormBase {
     $fileIds = array_filter($form_state->getValue('files') ?? []);
     $aiContexts = array_filter($form_state->getValue('ai_contexts') ?? []);
     $templateId = $form_state->getValue('ai_template') ?? '';
+    $webpageUrls = $form_state->get('validated_webpage_urls') ?? [];
 
     // Get or create a wizard session.
     $session = $this->wizardSessionManager->getSession();
@@ -219,8 +341,9 @@ class Step1UploadForm extends FormBase {
     // Clear any existing processed documents to start fresh.
     $session->clearProcessedDocuments();
 
-    // Store the uploaded file IDs and settings in session.
+    // Store the uploaded file IDs, webpage URLs, and settings in session.
     $session->setUploadedFileIds(array_map('intval', $fileIds));
+    $session->setWebpageUrls($webpageUrls);
     $session->setSelectedContexts(array_keys($aiContexts));
 
     if (!empty($templateId)) {
@@ -281,13 +404,23 @@ class Step1UploadForm extends FormBase {
       ));
     }
 
+    // Display webpage URLs status.
+    $urlCount = count($webpageUrls);
+    if ($urlCount > 0) {
+      $this->messenger()->addStatus($this->formatPlural(
+        $urlCount,
+        'Added 1 webpage URL for processing.',
+        'Added @count webpage URLs for processing.'
+      ));
+    }
+
     // Display any error messages.
     foreach ($errorMessages as $error) {
       $this->messenger()->addError($error);
     }
 
-    // If we processed at least one document, proceed to next step.
-    if ($processedCount > 0) {
+    // If we processed at least one document or have URLs, proceed to next step.
+    if ($processedCount > 0 || $urlCount > 0) {
       $this->wizardSessionManager->advanceStep();
       // Redirect to step 2 (plan review) when route is available.
       // For now, stay on wizard route which will show appropriate step.

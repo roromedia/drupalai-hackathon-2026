@@ -7,6 +7,7 @@ namespace Drupal\ai_content_preparation_wizard\Service;
 use Drupal\ai_content_preparation_wizard\Enum\WizardStep;
 use Drupal\ai_content_preparation_wizard\Model\ContentPlan;
 use Drupal\ai_content_preparation_wizard\Model\ProcessedDocument;
+use Drupal\ai_content_preparation_wizard\Model\ProcessedWebpage;
 use Drupal\ai_content_preparation_wizard\Model\WizardSession;
 
 /**
@@ -76,6 +77,14 @@ interface WizardSessionManagerInterface {
    *   The processed document to add.
    */
   public function addProcessedDocument(ProcessedDocument $document): void;
+
+  /**
+   * Adds a processed webpage to the session.
+   *
+   * @param \Drupal\ai_content_preparation_wizard\Model\ProcessedWebpage $webpage
+   *   The processed webpage to add.
+   */
+  public function addProcessedWebpage(ProcessedWebpage $webpage): void;
 
   /**
    * Sets the content plan for the session.

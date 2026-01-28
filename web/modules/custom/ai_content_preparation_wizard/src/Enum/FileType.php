@@ -16,6 +16,7 @@ enum FileType: string {
   case ODT = 'odt';
   case HTML = 'html';
   case MARKDOWN = 'md';
+  case WEBPAGE = 'webpage';
 
   /**
    * Gets a human-readable label for the file type.
@@ -29,6 +30,7 @@ enum FileType: string {
       self::ODT => 'OpenDocument Text',
       self::HTML => 'HTML Document',
       self::MARKDOWN => 'Markdown',
+      self::WEBPAGE => 'Web Page',
     };
   }
 
@@ -44,6 +46,7 @@ enum FileType: string {
       self::ODT => 'application/vnd.oasis.opendocument.text',
       self::HTML => 'text/html',
       self::MARKDOWN => 'text/markdown',
+      self::WEBPAGE => 'text/html',
     };
   }
 
