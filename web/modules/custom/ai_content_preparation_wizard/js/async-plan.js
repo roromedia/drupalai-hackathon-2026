@@ -185,6 +185,12 @@
         nextButton.style.display = '';
         nextButton.dataset.asyncHide = 'false';
       }
+
+      // Re-attach Drupal behaviors to ensure AJAX handlers work on dynamic content.
+      var formWrapper = document.getElementById('wizard-form-wrapper');
+      if (formWrapper && typeof Drupal !== 'undefined' && Drupal.attachBehaviors) {
+        Drupal.attachBehaviors(formWrapper, drupalSettings);
+      }
     },
 
     /**

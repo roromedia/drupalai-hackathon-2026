@@ -113,16 +113,23 @@ final class ContentPreparationWizardForm extends FormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state): array {
-    // Get current step from form state, with fallbacks.
+    // Disable form caching to avoid issues with async JS modifications.
+    $form_state->setCached(FALSE);
+    $form_state->disableCache();
+
+    // Get current step from form state, with fallback to user input for AJAX persistence.
     $step = $form_state->get('step');
     if ($step === NULL) {
-      // Try user input first (most reliable across rebuilds).
+      // Check user input first (includes submitted form values).
       $input = $form_state->getUserInput();
-      $step = isset($input['wizard_step']) ? (int) $input['wizard_step'] : NULL;
-    }
-    if ($step === NULL) {
-      // Finally try form values.
-      $step = (int) ($form_state->getValue('wizard_step') ?? 1);
+      if (isset($input['wizard_step']) && $input['wizard_step'] > 0) {
+        $step = (int) $input['wizard_step'];
+      }
+      else {
+        // Also check getValue for the hidden field.
+        $submittedStep = $form_state->getValue('wizard_step');
+        $step = $submittedStep ? (int) $submittedStep : 1;
+      }
     }
     $form_state->set('step', $step);
 
@@ -131,6 +138,17 @@ final class ContentPreparationWizardForm extends FormBase {
 
     // Disable autosave for this form as it can interfere with multi-step.
     $form['#autosave_form_disabled'] = TRUE;
+
+    // Disable render caching for this form.
+    $form['#cache'] = ['max-age' => 0];
+
+    // Hidden field to persist wizard step across AJAX rebuilds.
+    // Must use #default_value (not #value) for the value to be submitted.
+    $form['wizard_step'] = [
+      '#type' => 'hidden',
+      '#default_value' => $step,
+      '#attributes' => ['id' => 'wizard-step-field'],
+    ];
 
     // Attach library.
     $form['#attached']['library'][] = 'ai_content_preparation_wizard/wizard';
@@ -142,13 +160,6 @@ final class ContentPreparationWizardForm extends FormBase {
     // Build step indicator.
     $form['step_indicator'] = $this->buildStepIndicator($step);
 
-    // Hidden field to preserve step across AJAX requests.
-    // This acts as a backup if form state cache is invalidated.
-    $form['wizard_step'] = [
-      '#type' => 'hidden',
-      '#value' => $step,
-    ];
-
     // Build step-specific form.
     switch ($step) {
       case 1:
@@ -157,10 +168,6 @@ final class ContentPreparationWizardForm extends FormBase {
 
       case 2:
         $this->buildStep2($form, $form_state);
-        break;
-
-      case 3:
-        $this->buildStep3($form, $form_state);
         break;
     }
 
@@ -173,8 +180,7 @@ final class ContentPreparationWizardForm extends FormBase {
   protected function buildStepIndicator(int $currentStep): array {
     $steps = [
       1 => $this->t('Upload Documents'),
-      2 => $this->t('Review Plan'),
-      3 => $this->t('Create Page'),
+      2 => $this->t('Review & Create'),
     ];
 
     $items = [];
@@ -289,11 +295,12 @@ final class ContentPreparationWizardForm extends FormBase {
       '#type' => 'actions',
     ];
 
+    // Note: We intentionally omit #submit here so Drupal falls back to submitForm,
+    // which has routing logic to handle all steps consistently.
     $form['actions']['next'] = [
       '#type' => 'submit',
       '#name' => 'next_step1',
       '#value' => $this->t('Next'),
-      '#submit' => ['::submitStep1'],
       '#ajax' => [
         'callback' => '::ajaxCallback',
         'wrapper' => 'wizard-form-wrapper',
@@ -492,11 +499,13 @@ final class ContentPreparationWizardForm extends FormBase {
         ];
 
         // Hidden title field that will be populated by JS.
+        // Note: #required is FALSE here because the field is populated by JS,
+        // and we use #limit_validation_errors on the button to skip validation.
         $form['step2']['split_layout']['plan_panel']['plan_preview']['title'] = [
           '#type' => 'textfield',
           '#title' => $this->t('Page Title'),
           '#default_value' => '',
-          '#required' => TRUE,
+          '#required' => FALSE,
           '#attributes' => ['id' => 'edit-title-async', 'style' => 'display:none;'],
           '#title_display' => 'invisible',
         ];
@@ -635,6 +644,64 @@ final class ContentPreparationWizardForm extends FormBase {
           'onclick' => 'return false;',
         ],
       ];
+
+      // Page settings section (for final page creation).
+      $form['step2']['split_layout']['plan_panel']['page_settings'] = [
+        '#type' => 'fieldset',
+        '#title' => $this->t('Page Settings'),
+        '#attributes' => [
+          'class' => ['page-settings-section'],
+          'id' => 'page-settings-section',
+        ],
+      ];
+
+      $form['step2']['split_layout']['plan_panel']['page_settings']['page_title'] = [
+        '#type' => 'textfield',
+        '#title' => $this->t('Page Title'),
+        '#default_value' => $plan ? $plan->title : '',
+        '#required' => FALSE,
+        '#disabled' => $needsAsyncGeneration,
+        '#attributes' => [
+          'id' => 'edit-page-title',
+        ],
+      ];
+
+      $form['step2']['split_layout']['plan_panel']['page_settings']['url_alias'] = [
+        '#type' => 'textfield',
+        '#title' => $this->t('URL Alias'),
+        '#description' => $this->t('Leave empty for automatic alias generation.'),
+        '#default_value' => '',
+        '#disabled' => $needsAsyncGeneration,
+      ];
+
+      $form['step2']['split_layout']['plan_panel']['page_settings']['status'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Page Status'),
+        '#options' => [
+          0 => $this->t('Draft'),
+          1 => $this->t('Published'),
+        ],
+        '#default_value' => 0,
+        '#disabled' => $needsAsyncGeneration,
+      ];
+
+      // Show template information if one was selected.
+      $templateId = $session->getTemplateId();
+      if (!empty($templateId)) {
+        $templateInfo = $this->getTemplateInfo($templateId);
+        if ($templateInfo) {
+          $form['step2']['split_layout']['plan_panel']['page_settings']['template_info'] = [
+            '#type' => 'container',
+            '#attributes' => ['class' => ['template-info', 'messages', 'messages--status']],
+            'label' => [
+              '#markup' => '<strong>' . $this->t('Template:') . '</strong> ' . $templateInfo['label'],
+            ],
+            'description' => [
+              '#markup' => '<br><small>' . $this->t('The new page will be created by cloning this template.') . '</small>',
+            ],
+          ];
+        }
+      }
     }
     else {
       $form['step2']['no_plan'] = [
@@ -658,140 +725,16 @@ final class ContentPreparationWizardForm extends FormBase {
       '#limit_validation_errors' => [],
     ];
 
-    $form['actions']['next'] = [
-      '#type' => 'submit',
-      '#name' => 'next_step2',
-      '#value' => $this->t('Next'),
-      '#submit' => ['::submitStep2'],
-      '#ajax' => [
-        'callback' => '::ajaxCallback',
-        'wrapper' => 'wizard-form-wrapper',
-        'disable-refocus' => TRUE,
-      ],
-      '#limit_validation_errors' => [],
-      '#attributes' => [
-        'id' => 'edit-next-step2',
-        'data-async-hide' => $needsAsyncGeneration ? 'true' : 'false',
-      ],
-    ];
-  }
-
-  /**
-   * Builds Step 3: Create Page.
-   */
-  protected function buildStep3(array &$form, FormStateInterface $form_state): void {
-    $session = $this->sessionManager->getSession();
-    $plan = $session?->getContentPlan();
-
-    $form['step3'] = [
-      '#type' => 'container',
-      '#attributes' => ['class' => ['wizard-step-content']],
-    ];
-
-    if ($plan) {
-      $form['step3']['preview'] = [
-        '#type' => 'fieldset',
-        '#title' => $this->t('Final Preview'),
-      ];
-
-      $form['step3']['preview']['title'] = [
-        '#markup' => '<h3>' . $plan->title . '</h3>',
-      ];
-
-      $form['step3']['preview']['summary'] = [
-        '#markup' => '<p><em>' . $plan->summary . '</em></p>',
-      ];
-
-      $form['step3']['preview']['sections_count'] = [
-        '#markup' => '<p>' . $this->t('@count sections will be created.', ['@count' => count($plan->sections)]) . '</p>',
-      ];
-
-      // Show template information if one was selected.
-      $templateId = $session->getTemplateId();
-      if (!empty($templateId)) {
-        $templateInfo = $this->getTemplateInfo($templateId);
-        if ($templateInfo) {
-          $form['step3']['preview']['template_info'] = [
-            '#type' => 'container',
-            '#attributes' => ['class' => ['template-info', 'messages', 'messages--status']],
-            'label' => [
-              '#markup' => '<strong>' . $this->t('Template:') . '</strong> ' . $templateInfo['label'],
-            ],
-            'description' => [
-              '#markup' => '<br><small>' . $this->t('The new page will be created by cloning this template and filling its components with your content.') . '</small>',
-            ],
-          ];
-        }
-      }
-      else {
-        $form['step3']['preview']['no_template_info'] = [
-          '#type' => 'container',
-          '#attributes' => ['class' => ['template-info', 'messages', 'messages--warning']],
-          'label' => [
-            '#markup' => '<strong>' . $this->t('No template selected') . '</strong>',
-          ],
-          'description' => [
-            '#markup' => '<br><small>' . $this->t('A new page will be created with components generated from your content sections.') . '</small>',
-          ],
-        ];
-      }
-
-      $form['step3']['page_settings'] = [
-        '#type' => 'fieldset',
-        '#title' => $this->t('Page Settings'),
-      ];
-
-      $form['step3']['page_settings']['page_title'] = [
-        '#type' => 'textfield',
-        '#title' => $this->t('Page Title'),
-        '#default_value' => $plan->title,
-        '#required' => TRUE,
-      ];
-
-      $form['step3']['page_settings']['url_alias'] = [
-        '#type' => 'textfield',
-        '#title' => $this->t('URL Alias'),
-        '#description' => $this->t('Leave empty for automatic alias generation.'),
-        '#default_value' => '',
-      ];
-
-      $form['step3']['page_settings']['status'] = [
-        '#type' => 'select',
-        '#title' => $this->t('Page Status'),
-        '#options' => [
-          0 => $this->t('Draft'),
-          1 => $this->t('Published'),
-        ],
-        '#default_value' => 0,
-      ];
-    }
-    else {
-      $form['step3']['error'] = [
-        '#markup' => '<p>' . $this->t('No content plan available.') . '</p>',
-      ];
-    }
-
-    $form['actions'] = [
-      '#type' => 'actions',
-    ];
-
-    $form['actions']['back'] = [
-      '#type' => 'submit',
-      '#value' => $this->t('Back'),
-      '#submit' => ['::goBack'],
-      '#ajax' => [
-        'callback' => '::ajaxCallback',
-        'wrapper' => 'wizard-form-wrapper',
-        'disable-refocus' => TRUE,
-      ],
-      '#limit_validation_errors' => [],
-    ];
-
+    // Final submit button - no AJAX, full form submit for page creation.
     $form['actions']['submit'] = [
       '#type' => 'submit',
-      '#name' => 'op',
+      '#name' => 'create_page',
       '#value' => $this->t('Create Canvas Page Now'),
       '#button_type' => 'primary',
+      '#attributes' => [
+        'id' => 'edit-create-page',
+        'data-async-hide' => $needsAsyncGeneration ? 'true' : 'false',
+      ],
     ];
   }
 
@@ -1065,81 +1008,10 @@ final class ContentPreparationWizardForm extends FormBase {
 
     // Go to step 2.
     $form_state->set('step', 2);
-    $form_state->setRebuild();
-  }
-
-  /**
-   * Submit handler for Step 2.
-   */
-  public function submitStep2(array &$form, FormStateInterface $form_state): void {
-    $session = $this->sessionManager->getSession();
-    if ($session) {
-      $plan = $session->getContentPlan();
-      if ($plan) {
-        $planUpdated = FALSE;
-
-        // Update title if changed.
-        $newTitle = $form_state->getValue('title');
-        if ($newTitle && $newTitle !== $plan->title) {
-          $plan = $plan->withTitle($newTitle);
-          $planUpdated = TRUE;
-        }
-
-        // Update section component types and content if changed.
-        $sectionsData = $form_state->getValue('sections') ?? [];
-        if (!empty($sectionsData)) {
-          $updatedSections = [];
-          foreach ($plan->sections as $index => $section) {
-            $sectionId = $section->id ?? 'section_' . $index;
-            $needsUpdate = FALSE;
-            $newComponentType = $section->componentType;
-            $newContent = $section->content;
-
-            // Check for component type change.
-            if (isset($sectionsData[$sectionId]['component_type'])) {
-              $submittedComponentType = $sectionsData[$sectionId]['component_type'];
-              if ($submittedComponentType !== $section->componentType) {
-                $newComponentType = $submittedComponentType;
-                $needsUpdate = TRUE;
-              }
-            }
-
-            // Check for content change.
-            if (isset($sectionsData[$sectionId]['content'])) {
-              $submittedContent = trim($sectionsData[$sectionId]['content']);
-              if ($submittedContent !== trim($section->content)) {
-                $newContent = $submittedContent;
-                $needsUpdate = TRUE;
-              }
-            }
-
-            if ($needsUpdate) {
-              // Create updated section with new values.
-              $section = new \Drupal\ai_content_preparation_wizard\Model\PlanSection(
-                $section->id,
-                $section->title,
-                $newContent,
-                $newComponentType,
-                $section->order,
-                $section->componentConfig,
-                $section->children
-              );
-              $planUpdated = TRUE;
-            }
-            $updatedSections[] = $section;
-          }
-          $plan = $plan->withSections($updatedSections);
-        }
-
-        if ($planUpdated) {
-          $session->setContentPlan($plan);
-          $this->sessionManager->updateSession($session);
-        }
-      }
-    }
-
-    // Go to step 3.
-    $form_state->set('step', 3);
+    // Also set in user input to ensure persistence across AJAX rebuild.
+    $input = $form_state->getUserInput();
+    $input['wizard_step'] = 2;
+    $form_state->setUserInput($input);
     $form_state->setRebuild();
   }
 
@@ -1214,12 +1086,23 @@ final class ContentPreparationWizardForm extends FormBase {
     $trigger = $form_state->getTriggeringElement();
     $triggerName = $trigger['#name'] ?? '';
 
-    // Skip validation for back and regenerate buttons.
-    if (str_contains($triggerName, 'back') || str_contains($triggerName, 'regenerate')) {
-      return;
+    // Get step from form_state with fallback to user input (for AJAX persistence).
+    $step = $form_state->get('step');
+    if ($step === NULL) {
+      $input = $form_state->getUserInput();
+      if (isset($input['wizard_step']) && $input['wizard_step'] > 0) {
+        $step = (int) $input['wizard_step'];
+      }
+      else {
+        $submittedStep = $form_state->getValue('wizard_step');
+        $step = $submittedStep ? (int) $submittedStep : 1;
+      }
     }
 
-    $step = $form_state->get('step') ?? 1;
+    // Skip validation for step 2 buttons (back, regenerate, create).
+    if ($step >= 2 || str_contains($triggerName, 'back') || str_contains($triggerName, 'regenerate') || str_contains($triggerName, 'create')) {
+      return;
+    }
 
     // Only validate step 1 fields when on step 1.
     if ($step === 1 && str_contains($triggerName, 'next')) {
@@ -1259,6 +1142,32 @@ final class ContentPreparationWizardForm extends FormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state): void {
+    // Route to step-specific handlers based on step and trigger.
+    $step = $form_state->get('step') ?? 1;
+    $trigger = $form_state->getTriggeringElement();
+    $triggerName = $trigger['#name'] ?? '';
+    $triggerValue = $trigger['#value'] ?? '';
+
+    // Check if this is a "Next" button click for step 1.
+    $isNextButton = str_contains($triggerName, 'next') ||
+                    $triggerValue === (string) $this->t('Next');
+
+    // Route to step 1 handler.
+    if ($isNextButton && $step === 1) {
+      $this->submitStep1($form, $form_state);
+      return;
+    }
+
+    // Check if this is the final "Create Canvas Page Now" button on step 2.
+    $isCreateButton = $triggerName === 'create_page' ||
+                      $triggerValue === (string) $this->t('Create Canvas Page Now');
+
+    // Only proceed with final submission if we're on step 2 with the create button.
+    if ($step !== 2 || !$isCreateButton) {
+      $form_state->setRebuild();
+      return;
+    }
+
     $session = $this->sessionManager->getSession();
     if (!$session) {
       $this->messenger()->addError($this->t('No active session.'));
@@ -1276,9 +1185,21 @@ final class ContentPreparationWizardForm extends FormBase {
       return;
     }
 
+    // Update plan with any user edits from step 2 before creating the page.
+    $plan = $this->applyUserEditsToplan($plan, $form_state);
+    $session->setContentPlan($plan);
+    $this->sessionManager->updateSession($session);
+
     try {
+      // Get page title from form, fall back to plan title.
+      $pageTitle = $form_state->getValue('page_title');
+      $userInput = $form_state->getUserInput();
+      if (empty($pageTitle)) {
+        $pageTitle = $userInput['page_title'] ?? $plan->title;
+      }
+
       $options = [
-        'title' => $form_state->getValue('page_title') ?? $plan->title,
+        'title' => $pageTitle,
         'alias' => $form_state->getValue('url_alias') ?: NULL,
         'status' => (bool) $form_state->getValue('status'),
       ];
@@ -1322,6 +1243,82 @@ final class ContentPreparationWizardForm extends FormBase {
         '@error' => $e->getMessage(),
       ]));
     }
+  }
+
+  /**
+   * Applies user edits from step 2 form to the content plan.
+   *
+   * @param \Drupal\ai_content_preparation_wizard\Model\ContentPlan $plan
+   *   The original content plan.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state containing user edits.
+   *
+   * @return \Drupal\ai_content_preparation_wizard\Model\ContentPlan
+   *   The updated content plan with user edits applied.
+   */
+  protected function applyUserEditsToplan($plan, FormStateInterface $form_state) {
+    // Get raw user input for dynamically created JS elements.
+    $userInput = $form_state->getUserInput();
+
+    // Update title if changed.
+    $newTitle = $form_state->getValue('title');
+    if (empty($newTitle)) {
+      $newTitle = $userInput['title'] ?? NULL;
+    }
+    if ($newTitle && $newTitle !== $plan->title) {
+      $plan = $plan->withTitle($newTitle);
+    }
+
+    // Update section component types and content if changed.
+    $sectionsData = $form_state->getValue('sections') ?? [];
+    if (empty($sectionsData) && isset($userInput['sections'])) {
+      $sectionsData = $userInput['sections'];
+    }
+
+    if (!empty($sectionsData)) {
+      $updatedSections = [];
+      foreach ($plan->sections as $index => $section) {
+        $sectionId = $section->id ?? 'section_' . $index;
+        $needsUpdate = FALSE;
+        $newComponentType = $section->componentType;
+        $newContent = $section->content;
+
+        // Check for component type change.
+        if (isset($sectionsData[$sectionId]['component_type'])) {
+          $submittedComponentType = $sectionsData[$sectionId]['component_type'];
+          if ($submittedComponentType !== $section->componentType) {
+            $newComponentType = $submittedComponentType;
+            $needsUpdate = TRUE;
+          }
+        }
+
+        // Check for content change.
+        if (isset($sectionsData[$sectionId]['content'])) {
+          $submittedContent = trim($sectionsData[$sectionId]['content']);
+          if ($submittedContent !== trim($section->content)) {
+            $newContent = $submittedContent;
+            $needsUpdate = TRUE;
+          }
+        }
+
+        if ($needsUpdate) {
+          // Create updated section with new values.
+          $section = new \Drupal\ai_content_preparation_wizard\Model\PlanSection(
+            $section->id,
+            $section->title,
+            $newContent,
+            $newComponentType,
+            $section->order,
+            $section->componentConfig,
+            $section->children
+          );
+        }
+        $updatedSections[] = $section;
+      }
+      $plan = $plan->withSections($updatedSections);
+    }
+
+    return $plan;
   }
 
   /**
