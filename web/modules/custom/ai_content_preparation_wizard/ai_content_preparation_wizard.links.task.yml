@@ -2,3 +2,10 @@ ai_content_preparation_wizard.settings:
   title: 'Settings'
   route_name: ai_content_preparation_wizard.settings
   base_route: ai_content_preparation_wizard.settings
+
+# Tab on /admin/content page.
+ai_content_preparation_wizard.content_tab:
+  title: 'Content Preparation Wizard'
+  route_name: ai_content_preparation_wizard.wizard
+  base_route: system.admin_content
+  weight: 10

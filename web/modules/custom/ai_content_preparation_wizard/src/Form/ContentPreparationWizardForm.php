@@ -612,6 +612,9 @@ final class ContentPreparationWizardForm extends FormBase {
         '#placeholder' => $this->t('Type instructions to adjust the plan...'),
         '#rows' => 3,
         '#disabled' => $needsAsyncGeneration,
+        '#attributes' => [
+          'id' => 'edit-refinement-textarea',
+        ],
       ];
 
       $form['step2']['split_layout']['plan_panel']['refinement_section']['regenerate'] = [
@@ -629,6 +632,9 @@ final class ContentPreparationWizardForm extends FormBase {
         ],
         '#limit_validation_errors' => [['refinement']],
         '#disabled' => $needsAsyncGeneration,
+        '#attributes' => [
+          'id' => 'edit-regenerate-plan',
+        ],
       ];
     }
     else {
@@ -1142,6 +1148,9 @@ final class ContentPreparationWizardForm extends FormBase {
    * Submit handler to regenerate plan.
    */
   public function regeneratePlan(array &$form, FormStateInterface $form_state): void {
+    // Always stay on step 2 when regenerating.
+    $form_state->set('step', 2);
+
     $refinement = $form_state->getValue('refinement');
     if (!$refinement || !$this->planGenerator) {
       $this->messenger()->addWarning($this->t('Please enter refinement instructions.'));
@@ -1177,6 +1186,8 @@ final class ContentPreparationWizardForm extends FormBase {
       ]));
     }
 
+    // Ensure we stay on step 2 after regeneration.
+    $form_state->set('step', 2);
     $form_state->setRebuild();
   }
 

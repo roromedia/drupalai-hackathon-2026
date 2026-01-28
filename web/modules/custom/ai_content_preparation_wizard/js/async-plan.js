@@ -164,13 +164,17 @@
         }.bind(this));
       }
 
-      // Enable refinement controls.
-      var refinementSection = document.getElementById('refinement-section');
-      if (refinementSection) {
-        var textarea = refinementSection.querySelector('textarea');
-        var button = refinementSection.querySelector('input[type="submit"]');
-        if (textarea) textarea.disabled = false;
-        if (button) button.disabled = false;
+      // Enable refinement controls using explicit IDs.
+      var refinementTextarea = document.getElementById('edit-refinement-textarea');
+      var regenerateButton = document.getElementById('edit-regenerate-plan');
+      if (refinementTextarea) {
+        refinementTextarea.disabled = false;
+        refinementTextarea.removeAttribute('disabled');
+      }
+      if (regenerateButton) {
+        regenerateButton.disabled = false;
+        regenerateButton.removeAttribute('disabled');
+        regenerateButton.classList.remove('is-disabled');
       }
 
       // Show and enable navigation buttons.
