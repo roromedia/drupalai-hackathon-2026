@@ -113,8 +113,12 @@ final class ContentPreparationWizardForm extends FormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state): array {
-    // Get current step from form state, default to 1.
-    $step = $form_state->get('step') ?? 1;
+    // Get current step from form state, with fallback to hidden field value.
+    // This ensures step is preserved even if form state cache is invalidated.
+    $step = $form_state->get('step');
+    if ($step === NULL) {
+      $step = (int) ($form_state->getValue('wizard_step') ?? 1);
+    }
     $form_state->set('step', $step);
 
     // Enable form tree for proper nested value handling.
@@ -132,6 +136,13 @@ final class ContentPreparationWizardForm extends FormBase {
 
     // Build step indicator.
     $form['step_indicator'] = $this->buildStepIndicator($step);
+
+    // Hidden field to preserve step across AJAX requests.
+    // This acts as a backup if form state cache is invalidated.
+    $form['wizard_step'] = [
+      '#type' => 'hidden',
+      '#value' => $step,
+    ];
 
     // Build step-specific form.
     switch ($step) {
@@ -350,8 +361,8 @@ final class ContentPreparationWizardForm extends FormBase {
         try {
           $processedWebpage = $this->webpageProcessor->processUrl($url);
           $processedWebpages[$url] = $processedWebpage;
-          // Also add to session as a processed document for plan generation.
-          $session->addProcessedDocument($processedWebpage);
+          // Add to session's processed webpages for plan generation.
+          $session->addProcessedWebpage($processedWebpage);
         }
         catch (\Exception $e) {
           $webpageErrors[$url] = $e->getMessage();
@@ -362,10 +373,15 @@ final class ContentPreparationWizardForm extends FormBase {
         // Clear and regenerate content plan to include new webpage content.
         $session->clearContentPlan();
         $this->sessionManager->updateSession($session);
-        // Refresh processed docs to include webpages.
-        $processedDocs = $session->getProcessedDocuments();
       }
     }
+
+    // Get all processed webpages from session for preview display.
+    $sessionWebpages = $session?->getProcessedWebpages() ?? [];
+
+    // Merge documents and webpages for preview display.
+    // The preview function will separate them by type.
+    $allProcessedContent = array_merge($processedDocs, array_values($sessionWebpages));
 
     $form['step2'] = [
       '#type' => 'container',
@@ -435,7 +451,7 @@ final class ContentPreparationWizardForm extends FormBase {
       ];
 
       // Build tabbed document preview (includes both documents and webpages).
-      $this->buildTabbedDocumentPreview($form['step2']['split_layout']['markdown_panel'], $processedDocs, $webpageUrls);
+      $this->buildTabbedDocumentPreview($form['step2']['split_layout']['markdown_panel'], $allProcessedContent, $webpageUrls);
 
       // Right panel: Plan Review.
       $form['step2']['split_layout']['plan_panel'] = [
@@ -639,6 +655,7 @@ final class ContentPreparationWizardForm extends FormBase {
 
     $form['actions']['next'] = [
       '#type' => 'submit',
+      '#name' => 'next_step2',
       '#value' => $this->t('Next'),
       '#submit' => ['::submitStep2'],
       '#ajax' => [
@@ -647,9 +664,9 @@ final class ContentPreparationWizardForm extends FormBase {
         'disable-refocus' => TRUE,
       ],
       '#limit_validation_errors' => [],
-      '#disabled' => $needsAsyncGeneration,
       '#attributes' => [
         'id' => 'edit-next-step2',
+        'data-async-hide' => $needsAsyncGeneration ? 'true' : 'false',
       ],
     ];
   }
@@ -800,26 +817,32 @@ final class ContentPreparationWizardForm extends FormBase {
       return;
     }
 
-    // Separate documents from webpages based on provider.
+    // Separate documents from webpages based on type.
+    // ProcessedWebpage has 'url' property, ProcessedDocument has 'fileName'.
     $documents = [];
     $webpages = [];
     foreach ($processedDocs as $doc) {
       if (!isset($doc->markdownContent)) {
         continue;
       }
-      // Check if this is a webpage by provider type or by checking metadata.
-      // Use the enum value comparison for provider detection.
-      $providerValue = '';
-      if (isset($doc->provider)) {
-        $providerValue = is_object($doc->provider) ? ($doc->provider->value ?? '') : (string) $doc->provider;
-      }
-      $isWebpage = $providerValue === 'webpage' ||
-                   isset($doc->metadata->customProperties['source_url']);
-      if ($isWebpage) {
+      // Check if this is a ProcessedWebpage (has 'url' property) or ProcessedDocument.
+      if ($doc instanceof \Drupal\ai_content_preparation_wizard\Model\ProcessedWebpage) {
         $webpages[] = $doc;
       }
-      else {
-        $documents[] = $doc;
+      elseif ($doc instanceof \Drupal\ai_content_preparation_wizard\Model\ProcessedDocument) {
+        // ProcessedDocument could still be a webpage (from older code).
+        $providerValue = '';
+        if (isset($doc->provider)) {
+          $providerValue = is_object($doc->provider) ? ($doc->provider->value ?? '') : (string) $doc->provider;
+        }
+        $isWebpage = $providerValue === 'webpage' ||
+                     isset($doc->metadata->customProperties['source_url']);
+        if ($isWebpage) {
+          $webpages[] = $doc;
+        }
+        else {
+          $documents[] = $doc;
+        }
       }
     }
 
@@ -872,8 +895,16 @@ final class ContentPreparationWizardForm extends FormBase {
 
     // Add processed webpages.
     foreach ($webpages as $doc) {
-      $sourceUrl = $doc->metadata->customProperties['source_url'] ?? '';
-      $pageTitle = $doc->metadata->title ?? $doc->fileName ?? $this->t('Webpage @num', ['@num' => $webpageIndex + 1]);
+      // Handle both ProcessedWebpage and legacy ProcessedDocument with WEBPAGE type.
+      if ($doc instanceof \Drupal\ai_content_preparation_wizard\Model\ProcessedWebpage) {
+        $sourceUrl = $doc->url;
+        $pageTitle = $doc->title ?: $this->t('Webpage @num', ['@num' => $webpageIndex + 1]);
+      }
+      else {
+        // Legacy ProcessedDocument with WEBPAGE type.
+        $sourceUrl = $doc->metadata->customProperties['source_url'] ?? '';
+        $pageTitle = $doc->metadata->title ?? $doc->fileName ?? $this->t('Webpage @num', ['@num' => $webpageIndex + 1]);
+      }
       $tabKey = 'webpage_' . $tabIndex;
 
       // Create a details element for each webpage (becomes a vertical tab).

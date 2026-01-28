@@ -23,6 +23,12 @@
       // Mark as loading to prevent duplicate calls.
       loadingEl.dataset.asyncLoaded = 'true';
 
+      // Hide the Next button during async loading.
+      var nextButton = document.getElementById('edit-next-step2');
+      if (nextButton && nextButton.dataset.asyncHide === 'true') {
+        nextButton.style.display = 'none';
+      }
+
       // Get endpoint from settings.
       var endpoint = null;
       if (settings && settings.aiContentPreparationWizard) {
@@ -167,11 +173,13 @@
         if (button) button.disabled = false;
       }
 
-      // Enable navigation buttons.
+      // Show and enable navigation buttons.
       var nextButton = document.getElementById('edit-next-step2');
       if (nextButton) {
         nextButton.disabled = false;
         nextButton.classList.remove('is-disabled');
+        nextButton.style.display = '';
+        nextButton.dataset.asyncHide = 'false';
       }
     },
 

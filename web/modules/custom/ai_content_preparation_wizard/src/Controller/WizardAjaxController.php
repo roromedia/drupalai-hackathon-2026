@@ -160,12 +160,14 @@ final class WizardAjaxController extends ControllerBase {
         return $this->buildPlanJsonResponse($existingPlan, $session);
       }
 
-      // Get processed documents from session.
+      // Get processed documents and webpages from session.
       $processedDocs = $session->getProcessedDocuments() ?? [];
-      if (empty($processedDocs)) {
+      $hasWebpages = $session->hasProcessedWebpages();
+
+      if (empty($processedDocs) && !$hasWebpages) {
         return new JsonResponse([
           'success' => FALSE,
-          'error' => $this->t('No processed documents found.'),
+          'error' => $this->t('No processed documents or webpages found.'),
         ], 400);
       }
 
@@ -173,8 +175,14 @@ final class WizardAjaxController extends ControllerBase {
       $contexts = $session->getSelectedContexts();
       $templateId = $session->getTemplateId();
 
+      // Build options including webpages if available.
+      $options = [];
+      if ($hasWebpages) {
+        $options['webpages'] = $session->getProcessedWebpages();
+      }
+
       // Generate the plan.
-      $plan = $this->planGenerator->generate($processedDocs, $contexts, $templateId);
+      $plan = $this->planGenerator->generate($processedDocs, $contexts, $templateId, $options);
       $session->setContentPlan($plan);
       $this->sessionManager->updateSession($session);
 

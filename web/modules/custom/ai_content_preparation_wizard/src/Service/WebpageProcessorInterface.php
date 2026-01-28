@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\ai_content_preparation_wizard\Service;
 
-use Drupal\ai_content_preparation_wizard\Model\ProcessedDocument;
+use Drupal\ai_content_preparation_wizard\Model\ProcessedWebpage;
 
 /**
  * Interface for processing web pages into markdown documents.
@@ -25,26 +25,26 @@ interface WebpageProcessorInterface {
    * @param string $url
    *   The URL to fetch and process.
    *
-   * @return \Drupal\ai_content_preparation_wizard\Model\ProcessedDocument
-   *   The processed document with extracted content.
+   * @return \Drupal\ai_content_preparation_wizard\Model\ProcessedWebpage
+   *   The processed webpage with extracted content.
    *
    * @throws \Drupal\ai_content_preparation_wizard\Exception\DocumentProcessingException
    *   When the URL cannot be fetched or processed.
    */
-  public function processUrl(string $url): ProcessedDocument;
+  public function processUrl(string $url): ProcessedWebpage;
 
   /**
    * Processes multiple URLs and extracts their content.
    *
    * Processes each URL individually and returns an array of
-   * processed documents. Failed URLs will have error information
+   * processed webpages. Failed URLs will have error information
    * in the metadata.
    *
    * @param array<string> $urls
    *   Array of URLs to fetch and process.
    *
-   * @return array<\Drupal\ai_content_preparation_wizard\Model\ProcessedDocument>
-   *   Array of processed documents, one per successfully processed URL.
+   * @return array<\Drupal\ai_content_preparation_wizard\Model\ProcessedWebpage>
+   *   Array of processed webpages, one per successfully processed URL.
    *   Failed URLs are skipped with logged errors.
    */
   public function processUrls(array $urls): array;

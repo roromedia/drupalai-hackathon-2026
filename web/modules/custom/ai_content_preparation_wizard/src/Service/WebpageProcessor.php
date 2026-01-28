@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\ai_content_preparation_wizard\Service;
 
-use Drupal\ai_content_preparation_wizard\Enum\FileType;
-use Drupal\ai_content_preparation_wizard\Enum\ProcessingProvider;
 use Drupal\ai_content_preparation_wizard\Exception\DocumentProcessingException;
-use Drupal\ai_content_preparation_wizard\Model\DocumentMetadata;
-use Drupal\ai_content_preparation_wizard\Model\ProcessedDocument;
+use Drupal\ai_content_preparation_wizard\Model\ProcessedWebpage;
 use Drupal\Component\Utility\UrlHelper;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use GuzzleHttp\ClientInterface;
@@ -109,7 +106,7 @@ final class WebpageProcessor implements WebpageProcessorInterface {
   /**
    * {@inheritdoc}
    */
-  public function processUrl(string $url): ProcessedDocument {
+  public function processUrl(string $url): ProcessedWebpage {
     if (!$this->isValidUrl($url)) {
       throw new DocumentProcessingException(
         sprintf('Invalid URL format: %s', $url),
@@ -209,13 +206,16 @@ final class WebpageProcessor implements WebpageProcessorInterface {
       '@chars' => mb_strlen($markdown),
     ]);
 
-    return ProcessedDocument::create(
-      fileId: 0,
-      fileName: $this->urlToFilename($url),
-      fileType: FileType::WEBPAGE,
+    return ProcessedWebpage::create(
+      url: $url,
+      title: $metadata->title ?? $this->urlToFilename($url),
       markdownContent: $markdown,
-      metadata: $metadata,
-      provider: ProcessingProvider::WEBPAGE,
+      metadata: [
+        'description' => $metadata->description ?? '',
+        'author' => $metadata->author ?? '',
+        'word_count' => $metadata->wordCount ?? 0,
+        'source_url' => $url,
+      ],
     );
   }
 
@@ -319,7 +319,7 @@ final class WebpageProcessor implements WebpageProcessorInterface {
    * @return \Drupal\ai_content_preparation_wizard\Model\DocumentMetadata
    *   The extracted metadata.
    */
-  private function extractMetadata(string $html, string $url): DocumentMetadata {
+  private function extractMetadata(string $html, string $url): \stdClass {
     $title = NULL;
     $author = NULL;
     $description = NULL;
@@ -403,14 +403,15 @@ final class WebpageProcessor implements WebpageProcessorInterface {
       $customProperties['description'] = $description;
     }
 
-    return new DocumentMetadata(
-      title: $title ?: $this->getTitleFromUrl($url),
-      author: $author,
-      createdDate: NULL,
-      language: $language,
-      headings: $headings,
-      customProperties: $customProperties,
-    );
+    $metadata = new \stdClass();
+    $metadata->title = $title ?: $this->getTitleFromUrl($url);
+    $metadata->author = $author;
+    $metadata->description = $description;
+    $metadata->language = $language;
+    $metadata->headings = $headings;
+    $metadata->sourceUrl = $url;
+    $metadata->wordCount = str_word_count(strip_tags($html));
+    return $metadata;
   }
 
   /**
