@@ -20,11 +20,21 @@ ai_content_preparation_wizard.settings:
   options:
     _admin_route: TRUE
 
-# AJAX endpoint for regenerating the content plan.
+# AJAX endpoint for regenerating the content plan (Drupal AJAX).
 ai_content_preparation_wizard.regenerate_plan:
   path: '/admin/content/preparation-wizard/regenerate-plan'
   defaults:
     _controller: '\Drupal\ai_content_preparation_wizard\Controller\WizardAjaxController::regeneratePlan'
+  requirements:
+    _permission: 'access content preparation wizard'
+  options:
+    _admin_route: TRUE
+
+# JSON endpoint for regenerating the content plan (JavaScript fetch).
+ai_content_preparation_wizard.regenerate_plan_json:
+  path: '/admin/content/preparation-wizard/regenerate-plan-json'
+  defaults:
+    _controller: '\Drupal\ai_content_preparation_wizard\Controller\WizardAjaxController::regeneratePlanJson'
   requirements:
     _permission: 'access content preparation wizard'
   options:

@@ -113,10 +113,15 @@ final class ContentPreparationWizardForm extends FormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state): array {
-    // Get current step from form state, with fallback to hidden field value.
-    // This ensures step is preserved even if form state cache is invalidated.
+    // Get current step from form state, with fallbacks.
     $step = $form_state->get('step');
     if ($step === NULL) {
+      // Try user input first (most reliable across rebuilds).
+      $input = $form_state->getUserInput();
+      $step = isset($input['wizard_step']) ? (int) $input['wizard_step'] : NULL;
+    }
+    if ($step === NULL) {
+      // Finally try form values.
       $step = (int) ($form_state->getValue('wizard_step') ?? 1);
     }
     $form_state->set('step', $step);
@@ -612,28 +617,22 @@ final class ContentPreparationWizardForm extends FormBase {
         '#placeholder' => $this->t('Type instructions to adjust the plan...'),
         '#rows' => 3,
         '#disabled' => $needsAsyncGeneration,
+        '#name' => 'refinement',
         '#attributes' => [
           'id' => 'edit-refinement-textarea',
         ],
       ];
 
+      // Use a regular button that triggers JavaScript instead of Drupal AJAX.
+      // This bypasses form state issues and uses the dedicated AJAX endpoint.
       $form['step2']['split_layout']['plan_panel']['refinement_section']['regenerate'] = [
-        '#type' => 'submit',
+        '#type' => 'button',
         '#value' => $this->t('Regenerate Plan'),
-        '#submit' => ['::regeneratePlan'],
-        '#ajax' => [
-          'callback' => '::ajaxCallback',
-          'wrapper' => 'wizard-form-wrapper',
-          'disable-refocus' => TRUE,
-          'progress' => [
-            'type' => 'throbber',
-            'message' => $this->t('Regenerating plan...'),
-          ],
-        ],
-        '#limit_validation_errors' => [['refinement']],
         '#disabled' => $needsAsyncGeneration,
         '#attributes' => [
           'id' => 'edit-regenerate-plan',
+          'type' => 'button',
+          'onclick' => 'return false;',
         ],
       ];
     }
@@ -1150,7 +1149,12 @@ final class ContentPreparationWizardForm extends FormBase {
   public function regeneratePlan(array &$form, FormStateInterface $form_state): void {
     // Always stay on step 2 when regenerating.
     $form_state->set('step', 2);
+    // Also set in user input to ensure persistence across rebuild.
+    $input = $form_state->getUserInput();
+    $input['wizard_step'] = 2;
+    $form_state->setUserInput($input);
 
+    // Get refinement text from the named field.
     $refinement = $form_state->getValue('refinement');
     if (!$refinement || !$this->planGenerator) {
       $this->messenger()->addWarning($this->t('Please enter refinement instructions.'));
@@ -1210,8 +1214,8 @@ final class ContentPreparationWizardForm extends FormBase {
     $trigger = $form_state->getTriggeringElement();
     $triggerName = $trigger['#name'] ?? '';
 
-    // Skip validation for back buttons.
-    if (str_contains($triggerName, 'back')) {
+    // Skip validation for back and regenerate buttons.
+    if (str_contains($triggerName, 'back') || str_contains($triggerName, 'regenerate')) {
       return;
     }
 

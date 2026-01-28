@@ -299,4 +299,116 @@
     }
   };
 
+  /**
+   * Regenerate plan button behavior.
+   */
+  Drupal.behaviors.regeneratePlanButton = {
+    attach: function (context, settings) {
+      var regenerateButton = document.getElementById('edit-regenerate-plan');
+
+      // Skip if no button or already attached.
+      if (!regenerateButton || regenerateButton.dataset.regenerateAttached === 'true') {
+        return;
+      }
+
+      // Mark as attached to prevent duplicate handlers.
+      regenerateButton.dataset.regenerateAttached = 'true';
+
+      // Add click handler.
+      regenerateButton.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        var refinementTextarea = document.getElementById('edit-refinement-textarea');
+        var refinementPrompt = refinementTextarea ? refinementTextarea.value.trim() : '';
+
+        if (!refinementPrompt) {
+          alert(Drupal.t('Please enter refinement instructions.'));
+          return;
+        }
+
+        // Disable button and show loading state.
+        regenerateButton.disabled = true;
+        regenerateButton.classList.add('is-disabled');
+        var originalText = regenerateButton.value || regenerateButton.textContent;
+        regenerateButton.value = Drupal.t('Regenerating...');
+
+        // Show loading in plan area.
+        var loadingEl = document.getElementById('plan-loading');
+        var sectionsContainer = document.getElementById('plan-sections-container');
+        var asyncContent = document.getElementById('plan-async-content');
+
+        if (loadingEl) {
+          loadingEl.style.display = '';
+          loadingEl.innerHTML = '<div class="ajax-progress ajax-progress--throbber"><div class="ajax-progress__throbber">&nbsp;</div><div class="ajax-progress__message" id="plan-loading-status">' + Drupal.t('Regenerating content plan...') + '</div></div>';
+        }
+        if (sectionsContainer) {
+          sectionsContainer.innerHTML = '';
+        }
+
+        // Call JSON endpoint.
+        var endpoint = drupalSettings.path.baseUrl + 'admin/content/preparation-wizard/regenerate-plan-json';
+
+        fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            refinement_prompt: refinementPrompt
+          })
+        })
+        .then(function (response) {
+          if (!response.ok) {
+            return response.json().then(function (data) {
+              throw new Error(data.error || 'Request failed: ' + response.status);
+            });
+          }
+          return response.json();
+        })
+        .then(function (data) {
+          if (data.success) {
+            // Clear refinement textarea.
+            if (refinementTextarea) {
+              refinementTextarea.value = '';
+            }
+
+            // Re-render the plan using the existing method.
+            Drupal.behaviors.asyncPlanGeneration.renderPlan(data.plan, data.componentOptions, context);
+
+            // Show success message.
+            var messagesArea = document.querySelector('.messages-list, .region-highlighted, #block-claro-content');
+            if (messagesArea) {
+              var msg = document.createElement('div');
+              msg.className = 'messages messages--status';
+              msg.setAttribute('role', 'status');
+              msg.innerHTML = '<h2 class="visually-hidden">' + Drupal.t('Status message') + '</h2>' + Drupal.t('Plan has been updated based on your instructions.');
+              messagesArea.insertBefore(msg, messagesArea.firstChild);
+
+              // Auto-remove after 5 seconds.
+              setTimeout(function () {
+                msg.remove();
+              }, 5000);
+            }
+          } else {
+            Drupal.behaviors.asyncPlanGeneration.showError(data.error || Drupal.t('Failed to regenerate plan.'));
+          }
+        })
+        .catch(function (error) {
+          console.error('Regenerate plan error:', error);
+          Drupal.behaviors.asyncPlanGeneration.showError(error.message || Drupal.t('An error occurred while regenerating the plan.'));
+        })
+        .finally(function () {
+          // Re-enable button.
+          regenerateButton.disabled = false;
+          regenerateButton.classList.remove('is-disabled');
+          regenerateButton.value = originalText;
+        });
+      });
+    }
+  };
+
 })(Drupal, drupalSettings);

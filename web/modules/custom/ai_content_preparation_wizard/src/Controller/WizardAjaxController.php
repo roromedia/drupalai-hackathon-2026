@@ -133,6 +133,77 @@ final class WizardAjaxController extends ControllerBase {
   }
 
   /**
+   * JSON endpoint to regenerate the content plan.
+   *
+   * This endpoint is called via JavaScript fetch() to avoid Drupal form AJAX
+   * issues with step preservation.
+   *
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The request object.
+   *
+   * @return \Symfony\Component\HttpFoundation\JsonResponse
+   *   JSON response with updated plan data or error.
+   */
+  public function regeneratePlanJson(Request $request): JsonResponse {
+    try {
+      $session = $this->sessionManager->getSession();
+      if (!$session) {
+        return new JsonResponse([
+          'success' => FALSE,
+          'error' => (string) $this->t('No active wizard session found. Please start over.'),
+        ], 400);
+      }
+
+      $plan = $session->getContentPlan();
+      if (!$plan) {
+        return new JsonResponse([
+          'success' => FALSE,
+          'error' => (string) $this->t('No content plan found to refine.'),
+        ], 400);
+      }
+
+      // Get refinement prompt from request body (JSON).
+      $content = $request->getContent();
+      $data = json_decode($content, TRUE);
+      $refinementPrompt = $data['refinement_prompt'] ?? '';
+
+      // Fallback to form data or query parameter.
+      if (empty($refinementPrompt)) {
+        $refinementPrompt = $request->request->get('refinement_prompt', '');
+      }
+      if (empty($refinementPrompt)) {
+        $refinementPrompt = $request->query->get('refinement_prompt', '');
+      }
+
+      if (empty($refinementPrompt)) {
+        return new JsonResponse([
+          'success' => FALSE,
+          'error' => (string) $this->t('Please provide instructions for how to refine the plan.'),
+        ], 400);
+      }
+
+      // Refine the plan with selected contexts.
+      $contexts = $session->getSelectedContexts();
+      $refinedPlan = $this->planGenerator->refine($plan, $refinementPrompt, $contexts);
+      $this->sessionManager->setContentPlan($refinedPlan);
+      $this->sessionManager->updateSession($session);
+
+      return $this->buildPlanJsonResponse($refinedPlan, $session);
+
+    }
+    catch (\Exception $e) {
+      $this->getLogger('ai_content_preparation_wizard')->error('Plan regeneration failed: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+
+      return new JsonResponse([
+        'success' => FALSE,
+        'error' => (string) $this->t('Failed to regenerate plan: @error', ['@error' => $e->getMessage()]),
+      ], 500);
+    }
+  }
+
+  /**
    * AJAX endpoint for async plan generation.
    *
    * Called from Step 2 to generate the content plan asynchronously,
