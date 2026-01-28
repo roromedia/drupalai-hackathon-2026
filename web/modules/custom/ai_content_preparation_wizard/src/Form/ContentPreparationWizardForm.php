@@ -210,15 +210,16 @@ final class ContentPreparationWizardForm extends FormBase {
       '#attributes' => ['class' => ['wizard-step-content']],
     ];
 
+    $extensions = str_replace(',',' ', $extensions);
     $form['step1']['documents'] = [
       '#type' => 'managed_file',
       '#title' => $this->t('Upload Documents'),
       '#description' => $this->t('Drag and drop files here or click to browse. Supported formats: @formats', [
-        '@formats' => implode(', ', $extensions),
+        '@formats' => str_replace(',', ' ',  $extensions),
       ]),
       '#upload_location' => 'private://ai_content_preparation_wizard',
       '#upload_validators' => [
-        'FileExtension' => ['extensions' => implode(' ', $extensions)],
+        'FileExtension' => ['extensions' => $extensions],
         'FileSizeLimit' => ['fileLimit' => $maxSize],
       ],
       '#multiple' => TRUE,
