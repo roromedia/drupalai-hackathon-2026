@@ -133,6 +133,14 @@ final class ContentPreparationWizardForm extends FormBase {
     }
     $form_state->set('step', $step);
 
+    // Clear session when starting fresh on step 1 (fresh page load, not AJAX/form submit).
+    // Check for absence of user input to detect fresh page load.
+    $userInput = $form_state->getUserInput();
+    $isFreshPageLoad = empty($userInput) || (!isset($userInput['wizard_step']) && !isset($userInput['form_id']));
+    if ($step === 1 && $isFreshPageLoad) {
+      $this->sessionManager->clearSession();
+    }
+
     // Enable form tree for proper nested value handling.
     $form['#tree'] = FALSE;
 
@@ -354,13 +362,11 @@ final class ContentPreparationWizardForm extends FormBase {
     $webpageErrors = [];
 
     if (!empty($webpageUrls) && $this->webpageProcessor !== NULL) {
-      // Check which URLs are already processed (stored in session documents).
+      // Check which URLs are already processed (stored in session's processed webpages).
       $alreadyProcessedUrls = [];
-      foreach ($processedDocs as $doc) {
-        $sourceUrl = $doc->metadata->customProperties['source_url'] ?? NULL;
-        if ($sourceUrl !== NULL) {
-          $alreadyProcessedUrls[$sourceUrl] = TRUE;
-        }
+      $existingWebpages = $session?->getProcessedWebpages() ?? [];
+      foreach ($existingWebpages as $webpage) {
+        $alreadyProcessedUrls[$webpage->url] = TRUE;
       }
 
       // Only process URLs that haven't been processed yet.
@@ -987,9 +993,10 @@ final class ContentPreparationWizardForm extends FormBase {
       $session->setTemplateId($canvasPageId);
     }
 
-    // Clear existing documents and plan for fresh generation.
+    // Clear existing documents, webpages, and plan for fresh generation.
     // Documents and webpages are processed async in buildStep2 for better UX.
     $session->clearProcessedDocuments();
+    $session->clearProcessedWebpages();
     $session->clearContentPlan();
 
     // Note: Document processing is now deferred to buildStep2 along with
